@@ -1,41 +1,29 @@
-const STORAGE_KEY = "tiny-ledger-transactions-v1";
-
-const categories = {
-  expense: ["餐饮", "交通", "购物", "住房", "娱乐", "其他"],
-  income: ["工资", "奖金", "副业", "红包", "其他"]
-};
-
-const sampleTransactions = [
-  { id: crypto.randomUUID(), type: "expense", amount: 18, category: "餐饮", note: "午餐", date: new Date().toISOString() },
-  { id: crypto.randomUUID(), type: "expense", amount: 6, category: "交通", note: "地铁", date: new Date().toISOString() },
-  { id: crypto.randomUUID(), type: "income", amount: 300, category: "副业", note: "临时收入", date: new Date().toISOString() }
-];
+const STORAGE_KEY = "piecework-calendar-v1";
 
 const state = {
-  type: "expense",
-  transactions: loadTransactions() ?? sampleTransactions,
-  activeMonth: monthKey(new Date())
+  records: loadRecords(),
+  selectedDate: dateKey(new Date()),
+  activeMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 };
 
 const els = {
   installBtn: document.querySelector("#installBtn"),
   monthLabel: document.querySelector("#monthLabel"),
-  balanceText: document.querySelector("#balanceText"),
-  trendText: document.querySelector("#trendText"),
-  incomeText: document.querySelector("#incomeText"),
-  expenseText: document.querySelector("#expenseText"),
-  countText: document.querySelector("#countText"),
-  chart: document.querySelector("#monthChart"),
-  typeButtons: document.querySelectorAll("[data-type]"),
-  form: document.querySelector("#entryForm"),
-  amount: document.querySelector("#amountInput"),
-  category: document.querySelector("#categoryInput"),
-  note: document.querySelector("#noteInput"),
-  monthFilter: document.querySelector("#monthFilter"),
-  exportBtn: document.querySelector("#exportBtn"),
-  clearBtn: document.querySelector("#clearBtn"),
+  monthTotal: document.querySelector("#monthTotal"),
+  workDays: document.querySelector("#workDays"),
+  dayTotal: document.querySelector("#dayTotal"),
+  calendarTitle: document.querySelector("#calendarTitle"),
+  calendarGrid: document.querySelector("#calendarGrid"),
+  prevMonth: document.querySelector("#prevMonth"),
+  nextMonth: document.querySelector("#nextMonth"),
+  selectedDateTitle: document.querySelector("#selectedDateTitle"),
+  selectedDateTotal: document.querySelector("#selectedDateTotal"),
+  form: document.querySelector("#workForm"),
+  goods: document.querySelector("#goodsInput"),
+  price: document.querySelector("#priceInput"),
+  qty: document.querySelector("#qtyInput"),
   empty: document.querySelector("#emptyState"),
-  list: document.querySelector("#transactionList")
+  list: document.querySelector("#workList")
 };
 
 let deferredInstallPrompt = null;
@@ -43,12 +31,7 @@ let deferredInstallPrompt = null;
 init();
 
 function init() {
-  if (localStorage.getItem(STORAGE_KEY) === null) {
-    saveTransactions();
-  }
-
   bindEvents();
-  updateCategories();
   render();
 
   if ("serviceWorker" in navigator) {
@@ -57,52 +40,65 @@ function init() {
 }
 
 function bindEvents() {
-  els.typeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      state.type = button.dataset.type;
-      els.typeButtons.forEach((item) => item.classList.toggle("active", item === button));
-      updateCategories();
-    });
+  els.prevMonth.addEventListener("click", () => {
+    state.activeMonth = new Date(state.activeMonth.getFullYear(), state.activeMonth.getMonth() - 1, 1);
+    selectFirstVisibleDay();
+    render();
+  });
+
+  els.nextMonth.addEventListener("click", () => {
+    state.activeMonth = new Date(state.activeMonth.getFullYear(), state.activeMonth.getMonth() + 1, 1);
+    selectFirstVisibleDay();
+    render();
+  });
+
+  els.calendarGrid.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-date]");
+    if (!button) return;
+    state.selectedDate = button.dataset.date;
+    render();
   });
 
   els.form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const amount = Number.parseFloat(els.amount.value.replace(",", "."));
-    if (!Number.isFinite(amount) || amount <= 0) {
-      els.amount.focus();
+    const goods = els.goods.value.trim();
+    const price = parseMoney(els.price.value);
+    const qty = parseMoney(els.qty.value || "1");
+
+    if (!goods) {
+      els.goods.focus();
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      els.price.focus();
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      els.qty.focus();
       return;
     }
 
-    state.transactions.unshift({
+    state.records.push({
       id: crypto.randomUUID(),
-      type: state.type,
-      amount: roundMoney(amount),
-      category: els.category.value,
-      note: els.note.value.trim(),
-      date: new Date().toISOString()
+      date: state.selectedDate,
+      goods,
+      price: roundMoney(price),
+      qty: roundMoney(qty)
     });
 
-    saveTransactions();
+    saveRecords();
     els.form.reset();
-    updateCategories();
-    state.activeMonth = monthKey(new Date());
+    els.qty.value = "1";
     render();
+    els.goods.focus();
   });
 
-  els.monthFilter.addEventListener("change", () => {
-    state.activeMonth = els.monthFilter.value;
+  els.list.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-delete]");
+    if (!button) return;
+    state.records = state.records.filter((record) => record.id !== button.dataset.delete);
+    saveRecords();
     render();
-  });
-
-  els.exportBtn.addEventListener("click", exportCsv);
-
-  els.clearBtn.addEventListener("click", () => {
-    if (!state.transactions.length) return;
-    if (confirm("确定清空所有账单吗？")) {
-      state.transactions = [];
-      saveTransactions();
-      render();
-    }
   });
 
   window.addEventListener("beforeinstallprompt", (event) => {
@@ -121,147 +117,150 @@ function bindEvents() {
 }
 
 function render() {
-  renderMonthOptions();
-  const current = filteredTransactions();
-  const income = sumByType(current, "income");
-  const expense = sumByType(current, "expense");
-  const balance = income - expense;
+  const monthRecords = recordsForMonth(state.activeMonth);
+  const selectedRecords = recordsForDate(state.selectedDate);
+  const total = sumRecords(monthRecords);
+  const selectedTotal = sumRecords(selectedRecords);
+  const days = new Set(monthRecords.map((record) => record.date)).size;
 
-  els.monthLabel.textContent = `${formatMonth(state.activeMonth)}结余`;
-  els.balanceText.textContent = currency(balance);
-  els.incomeText.textContent = currency(income);
-  els.expenseText.textContent = currency(expense);
-  els.countText.textContent = String(current.length);
-  els.trendText.textContent = current.length
-    ? `本月共 ${current.length} 笔，平均每笔 ${currency((income + expense) / current.length)}`
-    : "这个月还没有账单";
+  els.monthLabel.textContent = `${formatMonth(state.activeMonth)}总计`;
+  els.monthTotal.textContent = currency(total);
+  els.workDays.textContent = `${days} 天`;
+  els.dayTotal.textContent = currency(selectedTotal);
+  els.calendarTitle.textContent = formatMonth(state.activeMonth);
+  els.selectedDateTitle.textContent = formatDateTitle(state.selectedDate);
+  els.selectedDateTotal.textContent = currency(selectedTotal);
 
-  drawChart(current);
-  renderList(current);
+  renderCalendar(monthRecords);
+  renderWorkList(selectedRecords);
 }
 
-function renderMonthOptions() {
-  const months = [...new Set(state.transactions.map((item) => monthKey(new Date(item.date))))];
-  if (!months.includes(state.activeMonth)) months.unshift(state.activeMonth);
-  months.sort().reverse();
+function renderCalendar(monthRecords) {
+  const year = state.activeMonth.getFullYear();
+  const month = state.activeMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const blanks = firstDay.getDay();
+  const today = dateKey(new Date());
+  const totals = new Map();
+  const counts = new Map();
 
-  els.monthFilter.innerHTML = months
-    .map((key) => `<option value="${key}">${formatMonth(key)}</option>`)
-    .join("");
-  els.monthFilter.value = state.activeMonth;
+  monthRecords.forEach((record) => {
+    totals.set(record.date, roundMoney((totals.get(record.date) || 0) + recordTotal(record)));
+    counts.set(record.date, (counts.get(record.date) || 0) + 1);
+  });
+
+  const cells = [];
+  for (let i = 0; i < blanks; i += 1) {
+    cells.push('<div class="day-cell blank"></div>');
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const key = dateKey(new Date(year, month, day));
+    const total = totals.get(key) || 0;
+    const count = counts.get(key) || 0;
+    const classes = [
+      "day-cell",
+      key === today ? "today" : "",
+      key === state.selectedDate ? "selected" : ""
+    ].filter(Boolean).join(" ");
+
+    cells.push(`
+      <button class="${classes}" type="button" data-date="${key}">
+        <span class="day-number">${day}</span>
+        ${total > 0 ? `<span class="day-money">${currency(total)}</span>` : ""}
+        ${count > 0 ? `<span class="day-count">${count} 笔</span>` : ""}
+      </button>
+    `);
+  }
+
+  els.calendarGrid.innerHTML = cells.join("");
 }
 
-function renderList(items) {
-  els.empty.hidden = items.length > 0;
-  els.list.innerHTML = items.map((item) => {
-    const sign = item.type === "income" ? "+" : "-";
-    const note = item.note ? ` · ${escapeHtml(item.note)}` : "";
-    return `
-      <li class="transaction">
-        <span class="badge">${escapeHtml(item.category.slice(0, 1))}</span>
-        <div>
-          <strong>${escapeHtml(item.category)}</strong>
-          <span>${formatDate(item.date)}${note}</span>
-        </div>
-        <span class="amount ${item.type}">${sign}${currency(item.amount)}</span>
-      </li>
-    `;
-  }).join("");
+function renderWorkList(records) {
+  els.empty.hidden = records.length > 0;
+  els.list.innerHTML = records.map((record) => `
+    <li class="work-item">
+      <div>
+        <span class="work-name">${escapeHtml(record.goods)}</span>
+        <span class="work-meta">${currency(record.price)} × ${formatQty(record.qty)}</span>
+      </div>
+      <div class="work-actions">
+        <span class="work-total">${currency(recordTotal(record))}</span>
+        <button class="delete-button" type="button" data-delete="${record.id}">删除</button>
+      </div>
+    </li>
+  `).join("");
 }
 
-function drawChart(items) {
-  const ctx = els.chart.getContext("2d");
-  const { width, height } = els.chart;
-  const income = sumByType(items, "income");
-  const expense = sumByType(items, "expense");
-  const max = Math.max(income, expense, 1);
-
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#f6efe5";
-  ctx.roundRect(18, 18, width - 36, height - 36, 18);
-  ctx.fill();
-
-  drawBar(ctx, 58, height - 42, 42, -Math.max(8, (expense / max) * 84), "#c8553d", "支出");
-  drawBar(ctx, 142, height - 42, 42, -Math.max(8, (income / max) * 84), "#0f766e", "收入");
-
-  ctx.fillStyle = "#65706d";
-  ctx.font = "13px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("本月对比", width / 2, 28);
+function selectFirstVisibleDay() {
+  const year = state.activeMonth.getFullYear();
+  const month = state.activeMonth.getMonth();
+  const selected = parseDateKey(state.selectedDate);
+  if (selected.getFullYear() !== year || selected.getMonth() !== month) {
+    state.selectedDate = dateKey(new Date(year, month, 1));
+  }
 }
 
-function drawBar(ctx, x, y, w, h, color, label) {
-  ctx.fillStyle = color;
-  ctx.roundRect(x, y, w, h, 10);
-  ctx.fill();
-  ctx.fillStyle = "#17211f";
-  ctx.font = "12px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(label, x + w / 2, y + 18);
+function recordsForMonth(monthDate) {
+  const key = monthKey(monthDate);
+  return state.records.filter((record) => record.date.startsWith(key));
 }
 
-function updateCategories() {
-  els.category.innerHTML = categories[state.type]
-    .map((item) => `<option value="${item}">${item}</option>`)
-    .join("");
+function recordsForDate(key) {
+  return state.records.filter((record) => record.date === key);
 }
 
-function filteredTransactions() {
-  return state.transactions.filter((item) => monthKey(new Date(item.date)) === state.activeMonth);
+function recordTotal(record) {
+  return roundMoney(record.price * record.qty);
 }
 
-function sumByType(items, type) {
-  return roundMoney(items
-    .filter((item) => item.type === type)
-    .reduce((total, item) => total + item.amount, 0));
+function sumRecords(records) {
+  return roundMoney(records.reduce((total, record) => total + recordTotal(record), 0));
 }
 
-function loadTransactions() {
+function loadRecords() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === null ? null : JSON.parse(stored);
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   } catch {
     return [];
   }
 }
 
-function saveTransactions() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.transactions));
+function saveRecords() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
 }
 
-function exportCsv() {
-  const rows = [["日期", "类型", "分类", "金额", "备注"], ...state.transactions.map((item) => [
-    formatDate(item.date),
-    item.type === "income" ? "收入" : "支出",
-    item.category,
-    item.amount,
-    item.note
-  ])];
-  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
-  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `xiaozhangben-${Date.now()}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+function parseMoney(value) {
+  return Number.parseFloat(String(value).replace(",", "."));
 }
 
-function csvCell(value) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+function dateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function monthKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatMonth(key) {
-  const [year, month] = key.split("-");
-  return `${year}年${Number(month)}月`;
+function parseDateKey(key) {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
-function formatDate(value) {
-  return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+function formatMonth(date) {
+  return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+}
+
+function formatDateTitle(key) {
+  const date = parseDateKey(key);
+  const today = dateKey(new Date());
+  const prefix = key === today ? "今天" : `${date.getMonth() + 1}月${date.getDate()}日`;
+  return `${prefix}做货`;
+}
+
+function formatQty(value) {
+  return Number.isInteger(value) ? `${value}` : `${value}`;
 }
 
 function currency(value) {

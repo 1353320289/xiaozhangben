@@ -1,12 +1,12 @@
 {
-  "name": "小账本",
-  "short_name": "小账本",
-  "description": "一个离线可用的本地记账 PWA。",
+  "name": "工货日历",
+  "short_name": "工货日历",
+  "description": "按日记录做货收益的离线 PWA。",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f7f4ed",
-  "theme_color": "#0f766e",
+  "background_color": "#f6f2e8",
+  "theme_color": "#166534",
   "icons": [
     {
       "src": "assets/icon.svg",

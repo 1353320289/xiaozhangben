@@ -1,4 +1,4 @@
-const CACHE_NAME = "tiny-ledger-pwa-v2";
+const CACHE_NAME = "piecework-calendar-v1";
 const ASSETS = [
   "./",
   "./index.html",

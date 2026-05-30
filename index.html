@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#0f766e">
+    <meta name="theme-color" content="#166534">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="小账本">
-    <title>小账本</title>
+    <meta name="apple-mobile-web-app-title" content="工货日历">
+    <title>工货日历</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/icon.svg">
@@ -17,77 +17,68 @@
     <div class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">本地离线记账</p>
-          <h1>小账本</h1>
+          <p class="eyebrow">每天做货收益</p>
+          <h1>工货日历</h1>
         </div>
-        <button class="icon-button" id="installBtn" type="button" title="安装到主屏幕" hidden>
-          <span aria-hidden="true">+</span>
-        </button>
+        <button class="install-button" id="installBtn" type="button" hidden>安装</button>
       </header>
 
       <main>
-        <section class="summary-panel" aria-label="本月概览">
-          <div class="summary-copy">
-            <p id="monthLabel">本月结余</p>
-            <strong id="balanceText">¥0.00</strong>
-            <span id="trendText">开始记录第一笔账吧</span>
+        <section class="summary-panel" aria-label="本月总计">
+          <div>
+            <p id="monthLabel">本月总计</p>
+            <strong id="monthTotal">¥0.00</strong>
           </div>
-          <canvas id="monthChart" width="240" height="150" aria-label="本月收支图表"></canvas>
-        </section>
-
-        <section class="quick-grid" aria-label="收支数据">
-          <article>
-            <span>收入</span>
-            <strong id="incomeText">¥0.00</strong>
-          </article>
-          <article>
-            <span>支出</span>
-            <strong id="expenseText">¥0.00</strong>
-          </article>
-          <article>
-            <span>记录</span>
-            <strong id="countText">0</strong>
-          </article>
-        </section>
-
-        <section class="entry-panel" aria-label="添加账单">
-          <div class="segmented" role="group" aria-label="账单类型">
-            <button class="active" type="button" data-type="expense">支出</button>
-            <button type="button" data-type="income">收入</button>
+          <div class="summary-side">
+            <span>上班天数</span>
+            <strong id="workDays">0 天</strong>
+            <span>选中日期</span>
+            <strong id="dayTotal">¥0.00</strong>
           </div>
-
-          <form id="entryForm">
-            <label>
-              金额
-              <input id="amountInput" inputmode="decimal" autocomplete="off" placeholder="0.00" required>
-            </label>
-            <label>
-              分类
-              <select id="categoryInput"></select>
-            </label>
-            <label>
-              备注
-              <input id="noteInput" maxlength="24" placeholder="早餐、工资、地铁...">
-            </label>
-            <button class="primary-button" type="submit">记一笔</button>
-          </form>
         </section>
 
-        <section class="tools-row" aria-label="筛选和导出">
-          <select id="monthFilter" title="选择月份"></select>
-          <button id="exportBtn" class="ghost-button" type="button">导出 CSV</button>
+        <section class="calendar-panel" aria-label="收益日历">
+          <div class="month-tools">
+            <button class="icon-button" id="prevMonth" type="button" aria-label="上个月">‹</button>
+            <h2 id="calendarTitle">2026年5月</h2>
+            <button class="icon-button" id="nextMonth" type="button" aria-label="下个月">›</button>
+          </div>
+          <div class="week-row" aria-hidden="true">
+            <span>日</span>
+            <span>一</span>
+            <span>二</span>
+            <span>三</span>
+            <span>四</span>
+            <span>五</span>
+            <span>六</span>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
         </section>
 
-        <section class="list-panel" aria-label="最近账单">
+        <section class="entry-panel" aria-label="当天做货">
           <div class="section-title">
-            <h2>最近账单</h2>
-            <button id="clearBtn" class="text-button" type="button">清空</button>
+            <h2 id="selectedDateTitle">今天</h2>
+            <span id="selectedDateTotal">¥0.00</span>
           </div>
-          <div id="emptyState" class="empty-state">
-            <img src="assets/notebook.svg" alt="">
-            <p>还没有记录。先添加一笔，图表会马上更新。</p>
-          </div>
-          <ul id="transactionList"></ul>
+
+          <form id="workForm">
+            <label class="wide">
+              做了什么货
+              <input id="goodsInput" autocomplete="off" maxlength="30" placeholder="例如：外壳、线束、包装" required>
+            </label>
+            <label>
+              单价
+              <input id="priceInput" inputmode="decimal" autocomplete="off" placeholder="0.00" required>
+            </label>
+            <label>
+              数量
+              <input id="qtyInput" inputmode="decimal" autocomplete="off" value="1" required>
+            </label>
+            <button class="primary-button" type="submit">保存到这一天</button>
+          </form>
+
+          <div id="emptyState" class="empty-state">这天还没有记录。</div>
+          <ul id="workList" class="work-list"></ul>
         </section>
       </main>
     </div>
