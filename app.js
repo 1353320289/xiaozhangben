@@ -275,25 +275,31 @@ function renderTrashList(records) {
 
 function buildReport() {
   const records = recordsForMonth(state.activeMonth).sort((a, b) => {
-    if (a.date === b.date) return 0;
-    return a.date.localeCompare(b.date);
+    if (a.goods === b.goods) return a.date.localeCompare(b.date);
+    return a.goods.localeCompare(b.goods, "zh-CN");
   });
 
   if (!records.length) {
-    return `${formatMonth(state.activeMonth)}\n本月暂无做货记录`;
+    return "本月暂无做货记录";
   }
 
-  const blocks = records.map((record) => [
-    `日期：${formatFullDate(record.date)}`,
-    `做货名称：${record.goods}`,
-    `单价：${moneyText(record.price)}/打`,
-    `打数数量：${formatQty(record.dozenQty)}打`,
-    `闪数数量：${formatQty(record.looseQty)}个`,
-    `总价：${moneyText(recordTotal(record))}`
-  ].join("\n"));
+  const grouped = new Map();
+  records.forEach((record) => {
+    if (!grouped.has(record.goods)) grouped.set(record.goods, new Map());
+    const dates = grouped.get(record.goods);
+    if (!dates.has(record.date)) dates.set(record.date, { dozenQty: 0, looseQty: 0 });
+    const total = dates.get(record.date);
+    total.dozenQty = roundMoney(total.dozenQty + (record.dozenQty || 0));
+    total.looseQty = roundMoney(total.looseQty + (record.looseQty || 0));
+  });
 
-  blocks.push(`本月合计：${moneyText(sumRecords(records))}`);
-  return blocks.join("\n\n");
+  return [...grouped.entries()].map(([goods, dates]) => {
+    const lines = [...dates.entries()]
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([date, qty]) => `${formatDayOnly(date)} ${formatReportQty(qty)}`);
+
+    return [goods, ...lines].join("\n");
+  }).join("\n\n");
 }
 
 async function copyReport() {
@@ -434,6 +440,18 @@ function formatShortDate(key) {
 function formatFullDate(key) {
   const date = parseDateKey(key);
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function formatDayOnly(key) {
+  const date = parseDateKey(key);
+  return `${date.getDate()}日`;
+}
+
+function formatReportQty(record) {
+  const parts = [];
+  if (record.dozenQty > 0) parts.push(`${formatQty(record.dozenQty)}打`);
+  if (record.looseQty > 0) parts.push(`${formatQty(record.looseQty)}闪`);
+  return parts.join(" ");
 }
 
 function normalizeRecord(record) {
