@@ -364,6 +364,10 @@ input {
   background: rgba(23, 33, 28, 0.38);
 }
 
+.report-panel[hidden] {
+  display: none;
+}
+
 .report-card {
   display: grid;
   grid-template-rows: auto minmax(260px, 1fr) auto;

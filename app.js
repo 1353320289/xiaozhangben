@@ -44,6 +44,7 @@ function init() {
   state.records = keepCurrentMonthRecords(state.records);
   saveRecords();
   requestPersistentStorage();
+  closeReportPanel();
   bindEvents();
   render();
 
@@ -145,10 +146,11 @@ function bindEvents() {
   els.reportBtn.addEventListener("click", () => {
     els.reportText.value = buildReport();
     els.reportPanel.hidden = false;
+    els.reportPanel.style.display = "grid";
   });
 
   els.closeReportBtn.addEventListener("click", () => {
-    els.reportPanel.hidden = true;
+    closeReportPanel();
   });
 
   els.copyReportBtn.addEventListener("click", copyReport);
@@ -302,6 +304,11 @@ async function copyReport() {
   setTimeout(() => {
     els.copyReportBtn.textContent = "复制 TXT";
   }, 1200);
+}
+
+function closeReportPanel() {
+  els.reportPanel.hidden = true;
+  els.reportPanel.style.display = "none";
 }
 
 function selectFirstVisibleDay() {
