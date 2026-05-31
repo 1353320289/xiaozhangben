@@ -40,6 +40,7 @@ const els = {
 };
 
 let deferredInstallPrompt = null;
+let reportImageUrl = null;
 
 init();
 
@@ -156,6 +157,12 @@ function bindEvents() {
   els.closeReportBtn.addEventListener("click", () => {
     state.view = "app";
     render();
+  });
+
+  els.downloadReportLink.addEventListener("click", (event) => {
+    if (els.downloadReportLink.getAttribute("href") === "#") {
+      event.preventDefault();
+    }
   });
 
   window.addEventListener("beforeinstallprompt", (event) => {
@@ -354,10 +361,25 @@ function drawReport(groups = buildReportGroups()) {
     y += cardHeight + cardGap;
   });
 
-  const dataUrl = canvas.toDataURL("image/png");
-  els.reportImage.src = dataUrl;
-  els.downloadReportLink.href = dataUrl;
+  els.downloadReportLink.href = "#";
+  els.downloadReportLink.textContent = "正在生成图片...";
   els.downloadReportLink.download = `zuohuo-report-${dateKey(new Date())}.png`;
+
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      const dataUrl = canvas.toDataURL("image/png");
+      els.reportImage.src = dataUrl;
+      els.downloadReportLink.href = dataUrl;
+      els.downloadReportLink.textContent = "下载报告图片";
+      return;
+    }
+
+    if (reportImageUrl) URL.revokeObjectURL(reportImageUrl);
+    reportImageUrl = URL.createObjectURL(blob);
+    els.reportImage.src = reportImageUrl;
+    els.downloadReportLink.href = reportImageUrl;
+    els.downloadReportLink.textContent = "下载报告图片";
+  }, "image/png");
 }
 
 function setViewVisibility() {
