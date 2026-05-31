@@ -324,7 +324,7 @@ function buildReportCards(sourceRecords = recordsForMonth(state.activeMonth)) {
   const goodsGroups = new Map();
   sourceRecords
     .slice()
-    .sort((a, b) => a.goods.localeCompare(b.goods, "zh-CN") || a.date.localeCompare(b.date))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.goods.localeCompare(b.goods, "zh-CN"))
     .forEach((record) => {
       if (!goodsGroups.has(record.goods)) goodsGroups.set(record.goods, new Map());
       const dates = goodsGroups.get(record.goods);
@@ -334,15 +334,18 @@ function buildReportCards(sourceRecords = recordsForMonth(state.activeMonth)) {
       total.looseQty = roundMoney(total.looseQty + (record.looseQty || 0));
     });
 
-  return [...goodsGroups.entries()].map(([name, dates]) => ({
-    name,
-    rows: [...dates.entries()]
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-      .map(([date, qty]) => ({
+  return [...goodsGroups.entries()].map(([name, dates]) => {
+    const sortedDates = [...dates.entries()].sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+    return {
+      name,
+      firstDate: sortedDates[0]?.[0] || "",
+      rows: sortedDates
+        .map(([date, qty]) => ({
         day: formatDayOnly(date),
         qty: formatReportQty(qty)
       }))
-  }));
+    };
+  }).sort((a, b) => a.firstDate.localeCompare(b.firstDate));
 }
 
 function drawReport(cards = buildReportCards()) {
