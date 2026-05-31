@@ -163,6 +163,7 @@ label,
 .primary-button,
 .install-button,
 .delete-button,
+.edit-button,
 .trash-button,
 .restore-button,
 .report-button,
@@ -418,11 +419,20 @@ input {
   gap: 6px;
 }
 
-.delete-button {
+.delete-button,
+.edit-button {
   min-height: 28px;
   padding: 0 8px;
+}
+
+.delete-button {
   background: #f8e5e1;
   color: var(--danger);
+}
+
+.edit-button {
+  background: #fff4d8;
+  color: #8a5a00;
 }
 
 .restore-button {

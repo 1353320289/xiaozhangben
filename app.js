@@ -14,7 +14,8 @@ const state = {
   showTrash: false,
   view: "auth",
   user: null,
-  syncStatus: "未登录"
+  syncStatus: "未登录",
+  editingId: null
 };
 
 const els = {
@@ -44,6 +45,7 @@ const els = {
   price: document.querySelector("#priceInput"),
   dozen: document.querySelector("#dozenInput"),
   loose: document.querySelector("#looseInput"),
+  saveBtn: document.querySelector("#saveBtn"),
   quickGoods: document.querySelector("#quickGoods"),
   reportBtn: document.querySelector("#reportBtn"),
   reportCanvas: document.querySelector("#reportCanvas"),
@@ -117,6 +119,7 @@ function bindEvents() {
     if (!button) return;
     state.selectedDate = button.dataset.date;
     state.showTrash = false;
+    resetEntryForm();
     render();
     fillLatestGoods();
   });
@@ -149,18 +152,33 @@ function bindEvents() {
       return;
     }
 
-    state.records.push({
-      id: crypto.randomUUID(),
-      date: state.selectedDate,
-      goods,
-      price: roundMoney(price),
-      dozenQty: roundMoney(dozenQty),
-      looseQty: roundMoney(looseQty)
-    });
+    if (state.editingId) {
+      const record = state.records.find((item) => item.id === state.editingId);
+      if (record) {
+        record.date = state.selectedDate;
+        record.goods = goods;
+        record.price = roundMoney(price);
+        record.dozenQty = roundMoney(dozenQty);
+        record.looseQty = roundMoney(looseQty);
+        record.updatedAt = new Date().toISOString();
+      }
+    } else {
+      const now = new Date().toISOString();
+      state.records.push({
+        id: crypto.randomUUID(),
+        date: state.selectedDate,
+        goods,
+        price: roundMoney(price),
+        dozenQty: roundMoney(dozenQty),
+        looseQty: roundMoney(looseQty),
+        createdAt: now,
+        updatedAt: now
+      });
+    }
 
     saveRecords();
     await syncRecords();
-    els.form.reset();
+    resetEntryForm();
     render();
     fillLatestGoods();
     els.dozen.focus();
@@ -168,9 +186,15 @@ function bindEvents() {
 
   els.list.addEventListener("click", async (event) => {
     const deleteButton = event.target.closest("[data-delete]");
+    const editButton = event.target.closest("[data-edit]");
     const restoreButton = event.target.closest("[data-restore]");
     const removeButton = event.target.closest("[data-remove]");
 
+    if (editButton) {
+      const record = state.records.find((item) => item.id === editButton.dataset.edit);
+      if (record) startEdit(record);
+      return;
+    }
     if (deleteButton) {
       const record = state.records.find((item) => item.id === deleteButton.dataset.delete);
       if (record) record.deletedAt = new Date().toISOString();
@@ -246,6 +270,7 @@ function render() {
   els.selectedDateTitle.textContent = state.showTrash ? "回收站" : formatDateTitle(state.selectedDate);
   els.selectedDateTotal.textContent = state.showTrash ? `${deletedRecords.length} 条` : currency(selectedTotal);
   els.form.hidden = state.showTrash;
+  els.saveBtn.textContent = state.editingId ? "更新" : "保存";
   els.trashBtn.textContent = state.showTrash ? "返回" : `回收站${deletedRecords.length ? ` ${deletedRecords.length}` : ""}`;
 
   renderCalendar(monthRecords);
@@ -317,6 +342,7 @@ function renderWorkList(records) {
       </div>
       <div class="work-actions">
         <span class="work-total">${currency(recordTotal(record))}</span>
+        <button class="edit-button" type="button" data-edit="${record.id}">编辑</button>
         <button class="delete-button" type="button" data-delete="${record.id}">删除</button>
       </div>
     </li>
@@ -511,6 +537,21 @@ async function enterAccount(user) {
   fillLatestGoods();
 }
 
+function startEdit(record) {
+  state.editingId = record.id;
+  fillGoods(record.goods, record.price, false);
+  els.dozen.value = record.dozenQty ? `${formatQty(record.dozenQty)}` : "";
+  els.loose.value = record.looseQty ? `${formatQty(record.looseQty)}` : "";
+  els.saveBtn.textContent = "更新";
+  els.dozen.focus();
+}
+
+function resetEntryForm() {
+  state.editingId = null;
+  els.form.reset();
+  els.saveBtn.textContent = "保存";
+}
+
 function frequentGoods() {
   const items = new Map();
   state.records
@@ -531,8 +572,12 @@ function frequentGoods() {
 
 function latestGoods() {
   return state.records
-    .filter((record) => !record.deletedAt)
-    .sort((a, b) => b.date.localeCompare(a.date))
+    .filter((record) => !record.deletedAt && record.date <= state.selectedDate)
+    .sort((a, b) => {
+      const dateSort = b.date.localeCompare(a.date);
+      if (dateSort !== 0) return dateSort;
+      return recordTime(b).localeCompare(recordTime(a));
+    })
     [0];
 }
 
@@ -546,6 +591,10 @@ function fillGoods(goods, price, focusQuantity = true) {
   els.goods.value = goods || "";
   els.price.value = price ? `${roundMoney(Number(price))}` : "";
   if (focusQuantity) els.dozen.focus();
+}
+
+function recordTime(record) {
+  return record.updatedAt || record.createdAt || "";
 }
 
 async function fetchCloudRecords() {
@@ -598,7 +647,7 @@ function recordToCloud(record) {
     dozen_qty: record.dozenQty || 0,
     loose_qty: record.looseQty || 0,
     deleted_at: record.deletedAt || null,
-    updated_at: new Date().toISOString()
+    updated_at: record.updatedAt || record.createdAt || new Date().toISOString()
   };
 }
 
@@ -610,7 +659,8 @@ function recordFromCloud(record) {
     price: Number(record.price) || 0,
     dozenQty: Number(record.dozen_qty) || 0,
     looseQty: Number(record.loose_qty) || 0,
-    deletedAt: record.deleted_at || undefined
+    deletedAt: record.deleted_at || undefined,
+    updatedAt: record.updated_at || undefined
   });
 }
 
@@ -801,20 +851,26 @@ function normalizeRecord(record) {
   if (record.dozenQty !== undefined) {
     return {
       ...record,
-      looseQty: record.looseQty ?? 0
+      looseQty: record.looseQty ?? 0,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt
     };
   }
   if (record.madeQty === undefined) {
     return {
       ...record,
       dozenQty: record.qty ?? 0,
-      looseQty: 0
+      looseQty: 0,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt
     };
   }
   return {
     ...record,
     dozenQty: 0,
-    looseQty: record.madeQty
+    looseQty: record.madeQty,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt
   };
 }
 
