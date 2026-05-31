@@ -353,15 +353,20 @@ function drawReport(cards = buildReportCards()) {
   const ctx = canvas.getContext("2d");
   const width = 900;
   const paddingX = 58;
-  const paddingTop = 54;
-  const titleHeight = 72;
-  const groupNameHeight = 58;
-  const rowHeight = 48;
-  const groupGap = 72;
+  const paddingTop = 46;
+  const titleHeight = 66;
+  const rowHeight = 42;
+  const groupNameHeight = 42;
+  const groupGap = 28;
+  const columnGap = 34;
   const cardsToDraw = cards.length ? cards : [{ name: "暂无记录", rows: [{ day: "", qty: "本月还没有做货记录" }] }];
-  const height = paddingTop + titleHeight + cardsToDraw.reduce((sum, card) => {
-    return sum + groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
-  }, 0);
+  const totalRows = cardsToDraw.reduce((sum, card) => sum + card.rows.length, 0);
+  const fullWidth = width - paddingX * 2;
+  const useTwoColumns = totalRows >= 18;
+  const columnWidth = useTwoColumns ? (fullWidth - columnGap) / 2 : fullWidth;
+  const columns = useTwoColumns ? splitReportColumns(cardsToDraw, rowHeight, groupNameHeight, groupGap) : [cardsToDraw];
+  const columnHeights = columns.map((column) => reportColumnHeight(column, rowHeight, groupNameHeight, groupGap));
+  const height = paddingTop + titleHeight + Math.max(...columnHeights) + 34;
 
   canvas.width = width;
   canvas.height = height;
@@ -372,26 +377,72 @@ function drawReport(cards = buildReportCards()) {
   ctx.font = "800 48px system-ui, sans-serif";
   ctx.fillText(`${state.activeMonth.getMonth() + 1}月计数`, paddingX, paddingTop + 46);
 
-  let y = paddingTop + titleHeight;
-  cardsToDraw.forEach((card) => {
+  const contentTop = paddingTop + titleHeight;
+  drawReportColumn(ctx, columns[0], paddingX, contentTop, columnWidth, rowHeight, groupNameHeight, groupGap);
+
+  if (useTwoColumns) {
+    const dividerX = paddingX + columnWidth + columnGap / 2;
+    ctx.fillStyle = "#e5e0d8";
+    ctx.fillRect(dividerX, contentTop - 4, 1, Math.max(...columnHeights), 1);
+    drawReportColumn(ctx, columns[1], paddingX + columnWidth + columnGap, contentTop, columnWidth, rowHeight, groupNameHeight, groupGap);
+  }
+
+  els.reportImage.src = canvas.toDataURL("image/png");
+}
+
+function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeight, groupGap) {
+  let y = startY;
+  cards.forEach((card) => {
     ctx.fillStyle = "#4b4d52";
-    ctx.textAlign = "center";
-    ctx.font = "500 34px system-ui, sans-serif";
-    ctx.fillText(fitText(ctx, card.name, width - paddingX * 2), width / 2, y + 38);
     ctx.textAlign = "left";
+    ctx.font = "500 32px system-ui, sans-serif";
+    ctx.fillText(fitText(ctx, card.name, width), x, y + 32);
 
     card.rows.forEach((row, index) => {
       const rowY = y + groupNameHeight + index * rowHeight;
       ctx.fillStyle = "#4b4d52";
-      ctx.font = "500 35px system-ui, sans-serif";
-      ctx.fillText(row.day, paddingX, rowY + 34);
-      ctx.fillText(fitText(ctx, row.qty, width - paddingX - 190), paddingX + 118, rowY + 34);
+      ctx.font = "500 32px system-ui, sans-serif";
+      ctx.fillText(row.day, x, rowY + 31);
+      ctx.fillText(fitText(ctx, row.qty, width - 92), x + 92, rowY + 31);
     });
 
     y += groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
   });
+}
 
-  els.reportImage.src = canvas.toDataURL("image/png");
+function splitReportColumns(cards, rowHeight, groupNameHeight, groupGap) {
+  const totalHeight = reportColumnHeight(cards, rowHeight, groupNameHeight, groupGap);
+  const target = totalHeight / 2;
+  const left = [];
+  const right = [];
+  let current = 0;
+
+  cards.forEach((card, index) => {
+    const height = reportCardHeight(card, rowHeight, groupNameHeight, groupGap);
+    if (!left.length && height > target && card.rows.length > 1) {
+      const splitAt = Math.ceil(card.rows.length / 2);
+      left.push({ ...card, rows: card.rows.slice(0, splitAt) });
+      right.push({ ...card, rows: card.rows.slice(splitAt) });
+      current += reportCardHeight(left[0], rowHeight, groupNameHeight, groupGap);
+      return;
+    }
+    if (index > 0 && current + height > target) {
+      right.push(card);
+      return;
+    }
+    left.push(card);
+    current += height;
+  });
+
+  return [left, right.length ? right : left.splice(Math.ceil(left.length / 2))];
+}
+
+function reportColumnHeight(cards, rowHeight, groupNameHeight, groupGap) {
+  return cards.reduce((sum, card) => sum + reportCardHeight(card, rowHeight, groupNameHeight, groupGap), 0);
+}
+
+function reportCardHeight(card, rowHeight, groupNameHeight, groupGap) {
+  return groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
 }
 
 async function login() {
