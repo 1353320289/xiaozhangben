@@ -357,25 +357,46 @@ function drawReport(groups = buildReportGroups()) {
   els.reportImage.src = canvas.toDataURL("image/png");
 }
 
-function downloadReport() {
+async function downloadReport() {
   const dataUrl = els.reportImage.src || els.reportCanvas.toDataURL("image/png");
   if (!dataUrl || dataUrl === "data:,") {
     return;
   }
 
-  let feedback = "已打开图片";
+  const file = dataUrlToFile(dataUrl, `zuohuo-report-${dateKey(new Date())}.png`);
+  let feedback = "请长按图片保存";
 
   try {
-    const opened = window.open(dataUrl, "_blank");
-    if (!opened) window.location.href = dataUrl;
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: "做货报告"
+      });
+      feedback = "已打开分享";
+    } else {
+      const opened = window.open(dataUrl, "_blank");
+      if (!opened) window.location.href = dataUrl;
+      feedback = "已打开图片";
+    }
   } catch {
-    window.location.href = dataUrl;
+    feedback = "请长按图片保存";
   }
 
   els.copyReportBtn.textContent = feedback;
   setTimeout(() => {
-    els.copyReportBtn.textContent = "打开图片保存";
+    els.copyReportBtn.textContent = "分享保存图片";
   }, 1200);
+}
+
+function dataUrlToFile(dataUrl, filename) {
+  const [header, data] = dataUrl.split(",");
+  const mime = header.match(/data:(.*);base64/)?.[1] || "image/png";
+  const binary = atob(data);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new File([bytes], filename, { type: mime });
 }
 
 function setViewVisibility() {
