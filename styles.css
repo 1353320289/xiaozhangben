@@ -392,6 +392,10 @@ input {
 }
 
 #reportCanvas {
+  display: none;
+}
+
+#reportImage {
   display: block;
   width: 100%;
   height: auto;
