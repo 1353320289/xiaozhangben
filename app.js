@@ -1,4 +1,5 @@
 const STORAGE_KEY = "piecework-calendar-v1";
+const BACKUP_STORAGE_KEY = "piecework-calendar-backup-v1";
 const BUNDLE_SIZE = 12;
 
 const state = {
@@ -35,6 +36,9 @@ let deferredInstallPrompt = null;
 init();
 
 function init() {
+  state.records = keepCurrentMonthRecords(state.records);
+  saveRecords();
+  requestPersistentStorage();
   bindEvents();
   render();
 
@@ -284,15 +288,39 @@ function sumRecords(records) {
 }
 
 function loadRecords() {
-  try {
-    return (JSON.parse(localStorage.getItem(STORAGE_KEY)) || []).map(normalizeRecord);
-  } catch {
-    return [];
-  }
+  const primary = readStoredRecords(STORAGE_KEY);
+  const backup = readStoredRecords(BACKUP_STORAGE_KEY);
+  const records = primary ?? backup ?? [];
+  return records.map(normalizeRecord);
 }
 
 function saveRecords() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
+  const value = JSON.stringify(state.records);
+  localStorage.setItem(STORAGE_KEY, value);
+  localStorage.setItem(BACKUP_STORAGE_KEY, value);
+}
+
+function readStoredRecords(key) {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? null : JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function keepCurrentMonthRecords(records) {
+  const currentMonth = monthKey(new Date());
+  return records.filter((record) => record.date?.startsWith(currentMonth));
+}
+
+async function requestPersistentStorage() {
+  if (!navigator.storage?.persist) return;
+  try {
+    await navigator.storage.persist();
+  } catch {
+    // Some iOS browsers do not expose persistent storage prompts.
+  }
 }
 
 function parseMoney(value) {
