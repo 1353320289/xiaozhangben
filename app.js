@@ -26,6 +26,11 @@ const els = {
   price: document.querySelector("#priceInput"),
   dozen: document.querySelector("#dozenInput"),
   loose: document.querySelector("#looseInput"),
+  reportBtn: document.querySelector("#reportBtn"),
+  reportPanel: document.querySelector("#reportPanel"),
+  reportText: document.querySelector("#reportText"),
+  closeReportBtn: document.querySelector("#closeReportBtn"),
+  copyReportBtn: document.querySelector("#copyReportBtn"),
   trashBtn: document.querySelector("#trashBtn"),
   empty: document.querySelector("#emptyState"),
   list: document.querySelector("#workList")
@@ -136,6 +141,17 @@ function bindEvents() {
     state.showTrash = !state.showTrash;
     render();
   });
+
+  els.reportBtn.addEventListener("click", () => {
+    els.reportText.value = buildReport();
+    els.reportPanel.hidden = false;
+  });
+
+  els.closeReportBtn.addEventListener("click", () => {
+    els.reportPanel.hidden = true;
+  });
+
+  els.copyReportBtn.addEventListener("click", copyReport);
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -251,6 +267,43 @@ function renderTrashList(records) {
   `).join("");
 }
 
+function buildReport() {
+  const records = recordsForMonth(state.activeMonth).sort((a, b) => {
+    if (a.date === b.date) return 0;
+    return a.date.localeCompare(b.date);
+  });
+
+  if (!records.length) {
+    return `${formatMonth(state.activeMonth)}\n本月暂无做货记录`;
+  }
+
+  const blocks = records.map((record) => [
+    `日期：${formatFullDate(record.date)}`,
+    `做货名称：${record.goods}`,
+    `单价：${moneyText(record.price)}/打`,
+    `打数数量：${formatQty(record.dozenQty)}打`,
+    `闪数数量：${formatQty(record.looseQty)}个`,
+    `总价：${moneyText(recordTotal(record))}`
+  ].join("\n"));
+
+  blocks.push(`本月合计：${moneyText(sumRecords(records))}`);
+  return blocks.join("\n\n");
+}
+
+async function copyReport() {
+  try {
+    await navigator.clipboard.writeText(els.reportText.value);
+  } catch {
+    els.reportText.focus();
+    els.reportText.select();
+    document.execCommand("copy");
+  }
+  els.copyReportBtn.textContent = "已复制";
+  setTimeout(() => {
+    els.copyReportBtn.textContent = "复制 TXT";
+  }, 1200);
+}
+
 function selectFirstVisibleDay() {
   const year = state.activeMonth.getFullYear();
   const month = state.activeMonth.getMonth();
@@ -364,6 +417,11 @@ function formatShortDate(key) {
   return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
+function formatFullDate(key) {
+  const date = parseDateKey(key);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 function normalizeRecord(record) {
   if (record.dozenQty !== undefined) {
     return {
@@ -387,6 +445,10 @@ function normalizeRecord(record) {
 
 function currency(value) {
   return new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(value);
+}
+
+function moneyText(value) {
+  return `¥${roundMoney(value).toFixed(2)}`;
 }
 
 function roundMoney(value) {

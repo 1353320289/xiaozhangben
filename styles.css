@@ -109,7 +109,10 @@ label,
 .install-button,
 .delete-button,
 .trash-button,
-.restore-button {
+.restore-button,
+.report-button,
+.close-button,
+.copy-button {
   border: 0;
   border-radius: 8px;
 }
@@ -236,13 +239,19 @@ label,
   font-weight: 800;
 }
 
-.trash-button {
+.trash-button,
+.report-button {
   min-height: 30px;
   padding: 0 8px;
   background: var(--green-soft);
   color: var(--green);
   font-size: 12px;
   font-weight: 800;
+}
+
+.report-button {
+  background: #fff4d8;
+  color: #8a5a00;
 }
 
 form {
@@ -343,6 +352,60 @@ input {
   background: var(--green);
   color: white;
   font-weight: 700;
+}
+
+.report-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: end center;
+  padding: 12px;
+  background: rgba(23, 33, 28, 0.38);
+}
+
+.report-card {
+  display: grid;
+  grid-template-rows: auto minmax(260px, 1fr) auto;
+  gap: 8px;
+  width: min(100%, 720px);
+  max-height: min(88dvh, 720px);
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.report-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.close-button {
+  min-height: 32px;
+  padding: 0 10px;
+  background: #eee7dc;
+  color: var(--ink);
+}
+
+#reportText {
+  width: 100%;
+  min-height: 260px;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  color: var(--ink);
+  background: white;
+  font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.copy-button {
+  min-height: 42px;
+  background: var(--green);
+  color: white;
+  font-weight: 800;
 }
 
 @media (max-width: 560px) {

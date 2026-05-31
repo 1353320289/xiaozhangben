@@ -49,6 +49,7 @@
             <h2 id="selectedDateTitle">今天</h2>
             <div class="day-tools">
               <span id="selectedDateTotal">¥0.00</span>
+              <button class="report-button" id="reportBtn" type="button">报告</button>
               <button class="trash-button" id="trashBtn" type="button">回收站</button>
             </div>
           </div>
@@ -79,6 +80,17 @@
       </main>
       <button class="install-button" id="installBtn" type="button" hidden>安装</button>
     </div>
+
+    <section class="report-panel" id="reportPanel" aria-label="生成报告" hidden>
+      <div class="report-card">
+        <div class="report-head">
+          <h2>本月报告</h2>
+          <button class="close-button" id="closeReportBtn" type="button">关闭</button>
+        </div>
+        <textarea id="reportText" readonly></textarea>
+        <button class="copy-button" id="copyReportBtn" type="button">复制 TXT</button>
+      </div>
+    </section>
 
     <script src="app.js" defer></script>
   </body>
