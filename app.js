@@ -354,29 +354,36 @@ function drawReport(groups = buildReportGroups()) {
   });
 }
 
-async function downloadReport() {
-  const blob = await new Promise((resolve) => els.reportCanvas.toBlob(resolve, "image/png"));
-  if (!blob) {
+function downloadReport() {
+  const dataUrl = els.reportCanvas.toDataURL("image/png");
+  if (!dataUrl || dataUrl === "data:,") {
     return;
   }
 
-  const url = URL.createObjectURL(blob);
+  const isAppleTouch =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   let feedback = "已下载";
 
   try {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `zuohuo-report-${dateKey(new Date())}.png`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    if (isAppleTouch) {
+      const opened = window.open(dataUrl, "_blank");
+      if (!opened) window.location.href = dataUrl;
+      feedback = "已打开图片";
+    } else {
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `zuohuo-report-${dateKey(new Date())}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
   } catch {
-    window.open(url, "_blank");
+    window.open(dataUrl, "_blank");
     feedback = "已打开图片";
   }
 
   els.copyReportBtn.textContent = feedback;
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
   setTimeout(() => {
     els.copyReportBtn.textContent = "下载图片";
   }, 1200);
