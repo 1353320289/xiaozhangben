@@ -155,7 +155,7 @@ function bindEvents() {
     render();
   });
 
-  els.copyReportBtn.addEventListener("click", copyReport);
+  els.copyReportBtn.addEventListener("click", downloadReport);
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -354,18 +354,31 @@ function drawReport(groups = buildReportGroups()) {
   });
 }
 
-async function copyReport() {
+async function downloadReport() {
   const blob = await new Promise((resolve) => els.reportCanvas.toBlob(resolve, "image/png"));
-  try {
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-    els.copyReportBtn.textContent = "已复制";
-  } catch {
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    els.copyReportBtn.textContent = "已打开图片";
+  if (!blob) {
+    return;
   }
+
+  const url = URL.createObjectURL(blob);
+  let feedback = "已下载";
+
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `zuohuo-report-${dateKey(new Date())}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch {
+    window.open(url, "_blank");
+    feedback = "已打开图片";
+  }
+
+  els.copyReportBtn.textContent = feedback;
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
   setTimeout(() => {
-    els.copyReportBtn.textContent = "复制图片";
+    els.copyReportBtn.textContent = "下载图片";
   }, 1200);
 }
 
