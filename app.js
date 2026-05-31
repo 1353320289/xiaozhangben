@@ -30,7 +30,7 @@ const els = {
   dozen: document.querySelector("#dozenInput"),
   loose: document.querySelector("#looseInput"),
   reportBtn: document.querySelector("#reportBtn"),
-  reportText: document.querySelector("#reportText"),
+  reportCanvas: document.querySelector("#reportCanvas"),
   closeReportBtn: document.querySelector("#closeReportBtn"),
   copyReportBtn: document.querySelector("#copyReportBtn"),
   trashBtn: document.querySelector("#trashBtn"),
@@ -145,9 +145,9 @@ function bindEvents() {
   });
 
   els.reportBtn.addEventListener("click", () => {
-    els.reportText.value = buildReport();
     state.view = "report";
     render();
+    drawReport();
   });
 
   els.closeReportBtn.addEventListener("click", () => {
@@ -273,14 +273,14 @@ function renderTrashList(records) {
   `).join("");
 }
 
-function buildReport() {
-  const records = recordsForMonth(state.activeMonth).sort((a, b) => {
+function buildReportGroups(sourceRecords = recordsForMonth(state.activeMonth)) {
+  const records = sourceRecords.sort((a, b) => {
     if (a.goods === b.goods) return a.date.localeCompare(b.date);
     return a.goods.localeCompare(b.goods, "zh-CN");
   });
 
   if (!records.length) {
-    return "本月暂无做货记录";
+    return [];
   }
 
   const grouped = new Map();
@@ -293,26 +293,79 @@ function buildReport() {
     total.looseQty = roundMoney(total.looseQty + (record.looseQty || 0));
   });
 
-  return [...grouped.entries()].map(([goods, dates]) => {
-    const lines = [...dates.entries()]
+  return [...grouped.entries()].map(([goods, dates]) => ({
+    goods,
+    rows: [...dates.entries()]
       .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-      .map(([date, qty]) => `${formatDayOnly(date)} ${formatReportQty(qty)}`);
+      .map(([date, qty]) => ({
+        day: formatDayOnly(date),
+        qty: formatReportQty(qty)
+      }))
+  }));
+}
 
-    return [goods, ...lines].join("\n");
-  }).join("\n\n");
+function drawReport(groups = buildReportGroups()) {
+  const canvas = els.reportCanvas;
+  const ctx = canvas.getContext("2d");
+  const width = 900;
+  const padding = 34;
+  const cardGap = 16;
+  const rowHeight = 34;
+  const cardHeader = 46;
+  const cardPadding = 18;
+  const groupsToDraw = groups.length ? groups : [{ goods: "暂无记录", rows: [{ day: "", qty: "本月还没有做货记录" }] }];
+  const height = padding * 2 + 74 + groupsToDraw.reduce((sum, group) => {
+    return sum + cardHeader + cardPadding + Math.ceil(group.rows.length / 3) * rowHeight + cardGap;
+  }, 0);
+
+  canvas.width = width;
+  canvas.height = height;
+  ctx.fillStyle = "#f7f2e8";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = "#17211c";
+  ctx.font = "700 34px system-ui, sans-serif";
+  ctx.fillText("做货报告", padding, 58);
+  ctx.fillStyle = "#6b746e";
+  ctx.font = "22px system-ui, sans-serif";
+  ctx.fillText(`上班 ${countReportDays(groupsToDraw)} 天`, padding, 94);
+
+  let y = 122;
+  groupsToDraw.forEach((group) => {
+    const rows = Math.ceil(group.rows.length / 3);
+    const cardHeight = cardHeader + cardPadding + rows * rowHeight;
+    roundRect(ctx, padding, y, width - padding * 2, cardHeight, 18, "#fffdf7");
+
+    ctx.fillStyle = "#166534";
+    ctx.font = "700 26px system-ui, sans-serif";
+    ctx.fillText(group.goods, padding + 22, y + 34);
+
+    ctx.font = "20px system-ui, sans-serif";
+    group.rows.forEach((row, index) => {
+      const column = index % 3;
+      const line = Math.floor(index / 3);
+      const x = padding + 22 + column * 265;
+      const rowY = y + cardHeader + 24 + line * rowHeight;
+      ctx.fillStyle = "#17211c";
+      ctx.fillText(row.day ? `${row.day}  ${row.qty}` : row.qty, x, rowY);
+    });
+
+    y += cardHeight + cardGap;
+  });
 }
 
 async function copyReport() {
+  const blob = await new Promise((resolve) => els.reportCanvas.toBlob(resolve, "image/png"));
   try {
-    await navigator.clipboard.writeText(els.reportText.value);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    els.copyReportBtn.textContent = "已复制";
   } catch {
-    els.reportText.focus();
-    els.reportText.select();
-    document.execCommand("copy");
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    els.copyReportBtn.textContent = "已打开图片";
   }
-  els.copyReportBtn.textContent = "已复制";
   setTimeout(() => {
-    els.copyReportBtn.textContent = "复制 TXT";
+    els.copyReportBtn.textContent = "复制图片";
   }, 1200);
 }
 
@@ -452,6 +505,26 @@ function formatReportQty(record) {
   if (record.dozenQty > 0) parts.push(`${formatQty(record.dozenQty)}打`);
   if (record.looseQty > 0) parts.push(`${formatQty(record.looseQty)}闪`);
   return parts.join(" ");
+}
+
+function countReportDays(groups) {
+  const days = new Set();
+  groups.forEach((group) => group.rows.forEach((row) => {
+    if (row.day) days.add(row.day);
+  }));
+  return days.size;
+}
+
+function roundRect(ctx, x, y, width, height, radius, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, radius);
+  ctx.arcTo(x + width, y + height, x, y + height, radius);
+  ctx.arcTo(x, y + height, x, y, radius);
+  ctx.arcTo(x, y, x + width, y, radius);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function normalizeRecord(record) {

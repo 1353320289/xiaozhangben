@@ -383,16 +383,18 @@ input {
   color: var(--ink);
 }
 
-#reportText {
-  width: 100%;
+.report-image-wrap {
   min-height: 0;
-  resize: none;
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px;
-  color: var(--ink);
-  background: white;
-  font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: #f7f2e8;
+}
+
+#reportCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .copy-button {
