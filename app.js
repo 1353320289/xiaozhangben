@@ -1,18 +1,34 @@
 const STORAGE_KEY = "piecework-calendar-v1";
 const BACKUP_STORAGE_KEY = "piecework-calendar-backup-v1";
+const LEGACY_MIGRATION_KEY = "piecework-calendar-legacy-migrated";
 const BUNDLE_SIZE = 12;
+const SUPABASE_URL = "https://xbelcicqzulbexljkttq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_oUSYtdT8CfWFh72JWyYSbg_Ds9eLduV";
+const RECORDS_TABLE = "ledger_records";
+const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const state = {
   records: loadRecords(),
   selectedDate: dateKey(new Date()),
   activeMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   showTrash: false,
-  view: "app"
+  view: "auth",
+  user: null,
+  syncStatus: "未登录"
 };
 
 const els = {
+  authView: document.querySelector("#authView"),
   appView: document.querySelector("#appView"),
   reportView: document.querySelector("#reportView"),
+  authForm: document.querySelector("#authForm"),
+  email: document.querySelector("#emailInput"),
+  password: document.querySelector("#passwordInput"),
+  registerBtn: document.querySelector("#registerBtn"),
+  authStatus: document.querySelector("#authStatus"),
+  accountLabel: document.querySelector("#accountLabel"),
+  syncStatus: document.querySelector("#syncStatus"),
+  logoutBtn: document.querySelector("#logoutBtn"),
   installBtn: document.querySelector("#installBtn"),
   monthLabel: document.querySelector("#monthLabel"),
   monthTotal: document.querySelector("#monthTotal"),
@@ -42,7 +58,7 @@ let deferredInstallPrompt = null;
 
 init();
 
-function init() {
+async function init() {
   state.records = keepCurrentMonthRecords(state.records);
   saveRecords();
   requestPersistentStorage();
@@ -54,9 +70,40 @@ function init() {
       registration.update();
     });
   }
+
+  if (!supabaseClient) {
+    setAuthStatus("网络组件没有加载，请刷新页面。");
+    return;
+  }
+
+  const { data } = await supabaseClient.auth.getSession();
+  if (data.session?.user) {
+    await enterAccount(data.session.user);
+  } else {
+    setAuthStatus("请输入邮箱和密码登录。");
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    if (session?.user && session.user.id !== state.user?.id) {
+      await enterAccount(session.user);
+    }
+  });
 }
 
 function bindEvents() {
+  els.authForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await login();
+  });
+
+  els.registerBtn.addEventListener("click", async () => {
+    await register();
+  });
+
+  els.logoutBtn.addEventListener("click", async () => {
+    await logout();
+  });
+
   els.prevMonth.addEventListener("click", () => {
     state.activeMonth = new Date(state.activeMonth.getFullYear(), state.activeMonth.getMonth() - 1, 1);
     selectFirstVisibleDay();
@@ -77,7 +124,7 @@ function bindEvents() {
     render();
   });
 
-  els.form.addEventListener("submit", (event) => {
+  els.form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const goods = els.goods.value.trim();
     const price = parseMoney(els.price.value);
@@ -115,12 +162,13 @@ function bindEvents() {
     });
 
     saveRecords();
+    await syncRecords();
     els.form.reset();
     render();
     els.goods.focus();
   });
 
-  els.list.addEventListener("click", (event) => {
+  els.list.addEventListener("click", async (event) => {
     const deleteButton = event.target.closest("[data-delete]");
     const restoreButton = event.target.closest("[data-restore]");
     const removeButton = event.target.closest("[data-remove]");
@@ -135,9 +183,11 @@ function bindEvents() {
     }
     if (removeButton) {
       state.records = state.records.filter((record) => record.id !== removeButton.dataset.remove);
+      await deleteCloudRecord(removeButton.dataset.remove);
     }
 
     saveRecords();
+    await syncRecords();
     render();
   });
 
@@ -182,6 +232,8 @@ function render() {
   const selectedTotal = sumRecords(selectedRecords);
   const days = new Set(monthRecords.map((record) => record.date)).size;
 
+  els.accountLabel.textContent = state.user?.email || "未登录";
+  els.syncStatus.textContent = state.syncStatus;
   els.monthLabel.textContent = "本月总计";
   els.monthTotal.textContent = currency(total);
   els.workDays.textContent = `${days} 天`;
@@ -356,10 +408,153 @@ function drawReport(groups = buildReportGroups()) {
   els.reportImage.src = canvas.toDataURL("image/png");
 }
 
+async function login() {
+  if (!supabaseClient) return;
+  setAuthStatus("正在登录...");
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email: els.email.value.trim(),
+    password: els.password.value
+  });
+  if (error) {
+    setAuthStatus(`登录失败：${error.message}`);
+  }
+}
+
+async function register() {
+  if (!supabaseClient) return;
+  setAuthStatus("正在注册...");
+  const { data, error } = await supabaseClient.auth.signUp({
+    email: els.email.value.trim(),
+    password: els.password.value
+  });
+  if (error) {
+    setAuthStatus(`注册失败：${error.message}`);
+    return;
+  }
+  if (data.user && !data.session) {
+    setAuthStatus("注册成功，请先去邮箱确认，再回来登录。");
+    return;
+  }
+  if (data.user) await enterAccount(data.user);
+}
+
+async function logout() {
+  if (supabaseClient) await supabaseClient.auth.signOut();
+  state.user = null;
+  state.records = keepCurrentMonthRecords(loadRecords());
+  state.view = "auth";
+  state.syncStatus = "未登录";
+  setAuthStatus("已退出，请重新登录。");
+  render();
+}
+
+async function enterAccount(user) {
+  state.user = user;
+  state.view = "app";
+  state.syncStatus = "同步中";
+  setAuthStatus("");
+  render();
+
+  let localRecords = keepCurrentMonthRecords(loadRecords(user.id));
+  if (!localRecords.length && !localStorage.getItem(LEGACY_MIGRATION_KEY)) {
+    localRecords = keepCurrentMonthRecords(loadRecords());
+    if (localRecords.length) localStorage.setItem(LEGACY_MIGRATION_KEY, user.id);
+  }
+  const cloudRecords = await fetchCloudRecords();
+  state.records = mergeRecords(cloudRecords, localRecords);
+  state.records = keepCurrentMonthRecords(state.records);
+  saveRecords();
+  await pruneOldCloudRecords();
+  await syncRecords();
+  state.syncStatus = "已同步";
+  render();
+}
+
+async function fetchCloudRecords() {
+  if (!supabaseClient || !state.user) return [];
+  const { data, error } = await supabaseClient
+    .from(RECORDS_TABLE)
+    .select("*")
+    .order("date", { ascending: true });
+  if (error) {
+    state.syncStatus = "云端读取失败";
+    return [];
+  }
+  return (data || []).map(recordFromCloud);
+}
+
+async function syncRecords() {
+  if (!supabaseClient || !state.user) return;
+  state.syncStatus = "同步中";
+  render();
+
+  const payload = state.records.map(recordToCloud);
+  const { error } = payload.length
+    ? await supabaseClient.from(RECORDS_TABLE).upsert(payload, { onConflict: "id" })
+    : { error: null };
+
+  state.syncStatus = error ? "同步失败" : "已同步";
+  render();
+}
+
+async function deleteCloudRecord(id) {
+  if (!supabaseClient || !state.user || !id) return;
+  await supabaseClient.from(RECORDS_TABLE).delete().eq("id", id);
+}
+
+async function pruneOldCloudRecords() {
+  if (!supabaseClient || !state.user) return;
+  await supabaseClient
+    .from(RECORDS_TABLE)
+    .delete()
+    .not("date", "like", `${monthKey(new Date())}%`);
+}
+
+function recordToCloud(record) {
+  return {
+    id: record.id,
+    user_id: state.user.id,
+    date: record.date,
+    goods: record.goods,
+    price: record.price,
+    dozen_qty: record.dozenQty || 0,
+    loose_qty: record.looseQty || 0,
+    deleted_at: record.deletedAt || null,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function recordFromCloud(record) {
+  return normalizeRecord({
+    id: record.id,
+    date: record.date,
+    goods: record.goods,
+    price: Number(record.price) || 0,
+    dozenQty: Number(record.dozen_qty) || 0,
+    looseQty: Number(record.loose_qty) || 0,
+    deletedAt: record.deleted_at || undefined
+  });
+}
+
+function mergeRecords(primary, secondary) {
+  const records = new Map();
+  [...secondary, ...primary].forEach((record) => {
+    records.set(record.id, record);
+  });
+  return [...records.values()];
+}
+
+function setAuthStatus(message) {
+  els.authStatus.textContent = message;
+}
+
 function setViewVisibility() {
+  const isAuth = state.view === "auth";
   const isReport = state.view === "report";
-  els.appView.hidden = isReport;
-  els.appView.style.display = isReport ? "none" : "grid";
+  els.authView.hidden = !isAuth;
+  els.authView.style.display = isAuth ? "grid" : "none";
+  els.appView.hidden = isAuth || isReport;
+  els.appView.style.display = isAuth || isReport ? "none" : "grid";
   els.reportView.hidden = !isReport;
   els.reportView.style.display = isReport ? "grid" : "none";
 }
@@ -400,8 +595,11 @@ function sumRecords(records) {
   return roundMoney(records.reduce((total, record) => total + recordTotal(record), 0));
 }
 
-function loadRecords() {
-  const primary = readStoredRecords(STORAGE_KEY);
+function loadRecords(userId = null) {
+  const primary = readStoredRecords(storageKey(userId));
+  if (userId) {
+    return (primary ?? []).map(normalizeRecord);
+  }
   const backup = readStoredRecords(BACKUP_STORAGE_KEY);
   const records = primary ?? backup ?? [];
   return records.map(normalizeRecord);
@@ -409,8 +607,12 @@ function loadRecords() {
 
 function saveRecords() {
   const value = JSON.stringify(state.records);
-  localStorage.setItem(STORAGE_KEY, value);
+  localStorage.setItem(storageKey(state.user?.id), value);
   localStorage.setItem(BACKUP_STORAGE_KEY, value);
+}
+
+function storageKey(userId = null) {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
 }
 
 function readStoredRecords(key) {

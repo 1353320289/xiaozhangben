@@ -67,10 +67,67 @@ h2 {
 }
 
 .work-board,
-.entry-panel {
+.entry-panel,
+.auth-card {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 253, 247, 0.94);
+}
+
+.auth-view {
+  place-items: center;
+}
+
+.auth-card {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 420px);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.auth-card p,
+.auth-status {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.auth-card form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+
+.auth-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.account-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.account-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-button {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: #eee7dc;
+  color: var(--ink);
+  font-size: 11px;
 }
 
 .work-board {
