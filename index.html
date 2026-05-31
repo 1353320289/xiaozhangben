@@ -11,14 +11,14 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/icon.svg">
-    <link rel="stylesheet" href="styles.css?v=23">
+    <link rel="stylesheet" href="styles.css?v=24">
   </head>
   <body>
     <div class="app-shell">
       <main id="authView" class="auth-view">
         <section class="auth-card">
           <h1>做货账本</h1>
-          <p>登录后记录会保存到你的账户里。</p>
+          <p>账户由管理员创建，登录后记录会保存到云端。</p>
           <form id="authForm">
             <label>
               <span>邮箱</span>
@@ -28,10 +28,7 @@
               <span>密码</span>
               <input id="passwordInput" type="password" autocomplete="current-password" placeholder="密码" required>
             </label>
-            <div class="auth-actions">
-              <button class="primary-button" id="loginBtn" type="submit">登录</button>
-              <button class="report-button" id="registerBtn" type="button">注册</button>
-            </div>
+            <button class="primary-button" id="loginBtn" type="submit">登录</button>
           </form>
           <p id="authStatus" class="auth-status"></p>
         </section>
@@ -122,7 +119,7 @@
       <button class="install-button" id="installBtn" type="button" hidden>安装</button>
     </div>
 
-    <script src="vendor/supabase.min.js?v=23" defer></script>
-    <script src="app.js?v=23" defer></script>
+    <script src="vendor/supabase.min.js?v=24" defer></script>
+    <script src="app.js?v=24" defer></script>
   </body>
 </html>

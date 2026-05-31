@@ -24,7 +24,6 @@ const els = {
   authForm: document.querySelector("#authForm"),
   email: document.querySelector("#emailInput"),
   password: document.querySelector("#passwordInput"),
-  registerBtn: document.querySelector("#registerBtn"),
   authStatus: document.querySelector("#authStatus"),
   accountLabel: document.querySelector("#accountLabel"),
   syncStatus: document.querySelector("#syncStatus"),
@@ -80,7 +79,7 @@ async function init() {
   if (data.session?.user) {
     await enterAccount(data.session.user);
   } else {
-    setAuthStatus("请输入邮箱和密码登录。");
+    setAuthStatus("请输入管理员创建的账户。");
   }
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
@@ -94,10 +93,6 @@ function bindEvents() {
   els.authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await login();
-  });
-
-  els.registerBtn.addEventListener("click", async () => {
-    await register();
   });
 
   els.logoutBtn.addEventListener("click", async () => {
@@ -418,24 +413,6 @@ async function login() {
   if (error) {
     setAuthStatus(`登录失败：${error.message}`);
   }
-}
-
-async function register() {
-  if (!supabaseClient) return;
-  setAuthStatus("正在注册...");
-  const { data, error } = await supabaseClient.auth.signUp({
-    email: els.email.value.trim(),
-    password: els.password.value
-  });
-  if (error) {
-    setAuthStatus(`注册失败：${error.message}`);
-    return;
-  }
-  if (data.user && !data.session) {
-    setAuthStatus("注册成功，请先去邮箱确认，再回来登录。");
-    return;
-  }
-  if (data.user) await enterAccount(data.user);
 }
 
 async function logout() {
