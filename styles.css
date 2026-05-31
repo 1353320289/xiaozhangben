@@ -107,7 +107,9 @@ label,
 .icon-button,
 .primary-button,
 .install-button,
-.delete-button {
+.delete-button,
+.trash-button,
+.restore-button {
   border: 0;
   border-radius: 8px;
 }
@@ -222,15 +224,30 @@ label,
   margin-bottom: 7px;
 }
 
+.day-tools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
 #selectedDateTotal,
 .work-name,
 .work-total {
   font-weight: 800;
 }
 
+.trash-button {
+  min-height: 30px;
+  padding: 0 8px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 82px 70px 58px;
+  grid-template-columns: minmax(0, 1fr) 74px 68px 68px 54px;
   gap: 6px;
 }
 
@@ -310,6 +327,13 @@ input {
   color: var(--danger);
 }
 
+.restore-button {
+  min-height: 28px;
+  padding: 0 8px;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
 .install-button {
   position: fixed;
   right: 10px;
@@ -332,7 +356,7 @@ input {
   }
 
   form {
-    grid-template-columns: minmax(0, 1fr) 74px 56px;
+    grid-template-columns: minmax(0, 1fr) 64px 64px 64px;
   }
 
   .primary-button {

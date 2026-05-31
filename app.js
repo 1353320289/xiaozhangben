@@ -3,7 +3,8 @@ const STORAGE_KEY = "piecework-calendar-v1";
 const state = {
   records: loadRecords(),
   selectedDate: dateKey(new Date()),
-  activeMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  activeMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  showTrash: false
 };
 
 const els = {
@@ -21,7 +22,9 @@ const els = {
   form: document.querySelector("#workForm"),
   goods: document.querySelector("#goodsInput"),
   price: document.querySelector("#priceInput"),
-  qty: document.querySelector("#qtyInput"),
+  bundle: document.querySelector("#bundleInput"),
+  made: document.querySelector("#madeInput"),
+  trashBtn: document.querySelector("#trashBtn"),
   empty: document.querySelector("#emptyState"),
   list: document.querySelector("#workList")
 };
@@ -56,6 +59,7 @@ function bindEvents() {
     const button = event.target.closest("[data-date]");
     if (!button) return;
     state.selectedDate = button.dataset.date;
+    state.showTrash = false;
     render();
   });
 
@@ -63,7 +67,8 @@ function bindEvents() {
     event.preventDefault();
     const goods = els.goods.value.trim();
     const price = parseMoney(els.price.value);
-    const qty = parseMoney(els.qty.value || "1");
+    const bundleSize = parseMoney(els.bundle.value || "12");
+    const madeQty = parseMoney(els.made.value);
 
     if (!goods) {
       els.goods.focus();
@@ -73,8 +78,12 @@ function bindEvents() {
       els.price.focus();
       return;
     }
-    if (!Number.isFinite(qty) || qty <= 0) {
-      els.qty.focus();
+    if (!Number.isFinite(bundleSize) || bundleSize <= 0) {
+      els.bundle.focus();
+      return;
+    }
+    if (!Number.isFinite(madeQty) || madeQty <= 0) {
+      els.made.focus();
       return;
     }
 
@@ -83,21 +92,40 @@ function bindEvents() {
       date: state.selectedDate,
       goods,
       price: roundMoney(price),
-      qty: roundMoney(qty)
+      bundleSize: roundMoney(bundleSize),
+      madeQty: roundMoney(madeQty)
     });
 
     saveRecords();
     els.form.reset();
-    els.qty.value = "1";
+    els.bundle.value = "12";
     render();
     els.goods.focus();
   });
 
   els.list.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-delete]");
-    if (!button) return;
-    state.records = state.records.filter((record) => record.id !== button.dataset.delete);
+    const deleteButton = event.target.closest("[data-delete]");
+    const restoreButton = event.target.closest("[data-restore]");
+    const removeButton = event.target.closest("[data-remove]");
+
+    if (deleteButton) {
+      const record = state.records.find((item) => item.id === deleteButton.dataset.delete);
+      if (record) record.deletedAt = new Date().toISOString();
+    }
+    if (restoreButton) {
+      const record = state.records.find((item) => item.id === restoreButton.dataset.restore);
+      if (record) delete record.deletedAt;
+    }
+    if (removeButton) {
+      state.records = state.records.filter((record) => record.id !== removeButton.dataset.remove);
+    }
+
     saveRecords();
+    render();
+  });
+
+  els.trashBtn.addEventListener("click", () => {
+    state.showTrash = !state.showTrash;
     render();
   });
 
@@ -119,6 +147,7 @@ function bindEvents() {
 function render() {
   const monthRecords = recordsForMonth(state.activeMonth);
   const selectedRecords = recordsForDate(state.selectedDate);
+  const deletedRecords = deletedRecordsList();
   const total = sumRecords(monthRecords);
   const selectedTotal = sumRecords(selectedRecords);
   const days = new Set(monthRecords.map((record) => record.date)).size;
@@ -128,11 +157,13 @@ function render() {
   els.workDays.textContent = `${days} 天`;
   els.dayTotal.textContent = currency(selectedTotal);
   els.calendarTitle.textContent = formatMonth(state.activeMonth);
-  els.selectedDateTitle.textContent = formatDateTitle(state.selectedDate);
-  els.selectedDateTotal.textContent = currency(selectedTotal);
+  els.selectedDateTitle.textContent = state.showTrash ? "回收站" : formatDateTitle(state.selectedDate);
+  els.selectedDateTotal.textContent = state.showTrash ? `${deletedRecords.length} 条` : currency(selectedTotal);
+  els.form.hidden = state.showTrash;
+  els.trashBtn.textContent = state.showTrash ? "返回" : `回收站${deletedRecords.length ? ` ${deletedRecords.length}` : ""}`;
 
   renderCalendar(monthRecords);
-  renderWorkList(selectedRecords);
+  state.showTrash ? renderTrashList(deletedRecords) : renderWorkList(selectedRecords);
 }
 
 function renderCalendar(monthRecords) {
@@ -179,15 +210,34 @@ function renderCalendar(monthRecords) {
 
 function renderWorkList(records) {
   els.empty.hidden = records.length > 0;
+  els.empty.textContent = "这天还没有记录。";
   els.list.innerHTML = records.map((record) => `
     <li class="work-item">
       <div>
         <span class="work-name">${escapeHtml(record.goods)}</span>
-        <span class="work-meta">${currency(record.price)} × ${formatQty(record.qty)}</span>
+        <span class="work-meta">${currency(record.price)}/打 × ${formatDozens(recordDozens(record))}打 · ${formatQty(record.madeQty)}个/${formatQty(record.bundleSize)}个</span>
       </div>
       <div class="work-actions">
         <span class="work-total">${currency(recordTotal(record))}</span>
         <button class="delete-button" type="button" data-delete="${record.id}">删除</button>
+      </div>
+    </li>
+  `).join("");
+}
+
+function renderTrashList(records) {
+  els.empty.hidden = records.length > 0;
+  els.empty.textContent = "回收站是空的。";
+  els.list.innerHTML = records.map((record) => `
+    <li class="work-item">
+      <div>
+        <span class="work-name">${escapeHtml(record.goods)}</span>
+        <span class="work-meta">${formatShortDate(record.date)} · ${currency(record.price)}/打 × ${formatDozens(recordDozens(record))}打</span>
+      </div>
+      <div class="work-actions">
+        <span class="work-total">${currency(recordTotal(record))}</span>
+        <button class="restore-button" type="button" data-restore="${record.id}">恢复</button>
+        <button class="delete-button" type="button" data-remove="${record.id}">彻底删</button>
       </div>
     </li>
   `).join("");
@@ -204,15 +254,27 @@ function selectFirstVisibleDay() {
 
 function recordsForMonth(monthDate) {
   const key = monthKey(monthDate);
-  return state.records.filter((record) => record.date.startsWith(key));
+  return state.records.filter((record) => !record.deletedAt && record.date.startsWith(key));
 }
 
 function recordsForDate(key) {
-  return state.records.filter((record) => record.date === key);
+  return state.records.filter((record) => !record.deletedAt && record.date === key);
+}
+
+function deletedRecordsList() {
+  return state.records
+    .filter((record) => record.deletedAt)
+    .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
 }
 
 function recordTotal(record) {
-  return roundMoney(record.price * record.qty);
+  return roundMoney(record.price * recordDozens(record));
+}
+
+function recordDozens(record) {
+  const bundleSize = record.bundleSize || 1;
+  const madeQty = record.madeQty ?? record.qty ?? 0;
+  return madeQty / bundleSize;
 }
 
 function sumRecords(records) {
@@ -221,7 +283,7 @@ function sumRecords(records) {
 
 function loadRecords() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    return (JSON.parse(localStorage.getItem(STORAGE_KEY)) || []).map(normalizeRecord);
   } catch {
     return [];
   }
@@ -261,6 +323,26 @@ function formatDateTitle(key) {
 
 function formatQty(value) {
   return Number.isInteger(value) ? `${value}` : `${value}`;
+}
+
+function formatDozens(value) {
+  return Number.isInteger(value) ? `${value}` : `${roundMoney(value)}`;
+}
+
+function formatShortDate(key) {
+  const date = parseDateKey(key);
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function normalizeRecord(record) {
+  if (record.madeQty === undefined) {
+    return {
+      ...record,
+      bundleSize: 1,
+      madeQty: record.qty ?? 0
+    };
+  }
+  return record;
 }
 
 function currency(value) {

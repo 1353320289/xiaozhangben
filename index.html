@@ -47,7 +47,10 @@
         <section class="entry-panel" aria-label="当天做货">
           <div class="day-head">
             <h2 id="selectedDateTitle">今天</h2>
-            <span id="selectedDateTotal">¥0.00</span>
+            <div class="day-tools">
+              <span id="selectedDateTotal">¥0.00</span>
+              <button class="trash-button" id="trashBtn" type="button">回收站</button>
+            </div>
           </div>
 
           <form id="workForm">
@@ -56,12 +59,16 @@
               <input id="goodsInput" autocomplete="off" maxlength="30" placeholder="做了什么货" required>
             </label>
             <label>
-              <span>单价</span>
-              <input id="priceInput" inputmode="decimal" autocomplete="off" placeholder="单价" required>
+              <span>每打单价</span>
+              <input id="priceInput" inputmode="decimal" autocomplete="off" placeholder="单价/打" required>
             </label>
             <label>
-              <span>数量</span>
-              <input id="qtyInput" inputmode="decimal" autocomplete="off" value="1" required>
+              <span>一打数量</span>
+              <input id="bundleInput" inputmode="decimal" autocomplete="off" placeholder="一打数" value="12" required>
+            </label>
+            <label>
+              <span>做了数量</span>
+              <input id="madeInput" inputmode="decimal" autocomplete="off" placeholder="做了数" required>
             </label>
             <button class="primary-button" type="submit">保存</button>
           </form>
