@@ -349,59 +349,46 @@ function drawReport(cards = buildReportCards()) {
   const canvas = els.reportCanvas;
   const ctx = canvas.getContext("2d");
   const width = 900;
-  const padding = 20;
-  const cardGap = 12;
-  const titleHeight = 48;
-  const chipHeight = 42;
-  const chipGap = 8;
-  const chipWidth = 200;
-  const columns = 4;
-  const innerPadding = 16;
+  const paddingX = 58;
+  const paddingTop = 54;
+  const titleHeight = 72;
+  const groupNameHeight = 58;
+  const rowHeight = 48;
+  const groupGap = 72;
   const cardsToDraw = cards.length ? cards : [{ name: "暂无记录", rows: [{ day: "", qty: "本月还没有做货记录" }] }];
-  const height = padding * 2 + cardsToDraw.reduce((sum, card) => {
-    return sum + reportCardHeight(card.rows.length, columns, titleHeight, chipHeight, chipGap, innerPadding) + cardGap;
+  const height = paddingTop + titleHeight + cardsToDraw.reduce((sum, card) => {
+    return sum + groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
   }, 0);
 
   canvas.width = width;
   canvas.height = height;
-  ctx.fillStyle = "#f7f2e8";
+  ctx.fillStyle = "#fffefd";
   ctx.fillRect(0, 0, width, height);
 
-  let y = padding;
-  cardsToDraw.forEach((card) => {
-    const cardHeight = reportCardHeight(card.rows.length, columns, titleHeight, chipHeight, chipGap, innerPadding);
-    roundRect(ctx, padding, y, width - padding * 2, cardHeight, 16, "#fffdf7");
+  ctx.fillStyle = "#3f4246";
+  ctx.font = "800 48px system-ui, sans-serif";
+  ctx.fillText(`${state.activeMonth.getMonth() + 1}月计数`, paddingX, paddingTop + 46);
 
-    ctx.fillStyle = "#166534";
-    ctx.font = "800 34px system-ui, sans-serif";
-    ctx.fillText(fitText(ctx, card.name, width - padding * 2 - innerPadding * 2), padding + innerPadding, y + 36);
+  let y = paddingTop + titleHeight;
+  cardsToDraw.forEach((card) => {
+    ctx.fillStyle = "#4b4d52";
+    ctx.textAlign = "center";
+    ctx.font = "500 34px system-ui, sans-serif";
+    ctx.fillText(fitText(ctx, card.name, width - paddingX * 2), width / 2, y + 38);
+    ctx.textAlign = "left";
 
     card.rows.forEach((row, index) => {
-      const column = index % columns;
-      const line = Math.floor(index / columns);
-      const chipX = padding + innerPadding + column * (chipWidth + chipGap);
-      const chipY = y + titleHeight + line * (chipHeight + chipGap);
-      roundRect(ctx, chipX, chipY, chipWidth, chipHeight, 11, "#eef7ef");
-
-      ctx.fillStyle = "#166534";
-      ctx.font = "800 24px system-ui, sans-serif";
-      ctx.fillText(row.day, chipX + 10, chipY + 28);
-      ctx.fillStyle = "#17211c";
-      ctx.textAlign = "right";
-      ctx.font = "800 24px system-ui, sans-serif";
-      ctx.fillText(fitText(ctx, row.qty, 116), chipX + chipWidth - 10, chipY + 28);
-      ctx.textAlign = "left";
+      const rowY = y + groupNameHeight + index * rowHeight;
+      ctx.fillStyle = "#4b4d52";
+      ctx.font = "500 35px system-ui, sans-serif";
+      ctx.fillText(row.day, paddingX, rowY + 34);
+      ctx.fillText(fitText(ctx, row.qty, width - paddingX - 190), paddingX + 118, rowY + 34);
     });
 
-    y += cardHeight + cardGap;
+    y += groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
   });
 
   els.reportImage.src = canvas.toDataURL("image/png");
-}
-
-function reportCardHeight(rowCount, columns, titleHeight, chipHeight, chipGap, innerPadding) {
-  const lines = Math.max(1, Math.ceil(rowCount / columns));
-  return titleHeight + innerPadding + lines * chipHeight + (lines - 1) * chipGap;
 }
 
 async function login() {
@@ -670,7 +657,7 @@ function formatDayOnly(key) {
 function formatReportQty(record) {
   const parts = [];
   if (record.dozenQty > 0) parts.push(`${formatQty(record.dozenQty)}打`);
-  if (record.looseQty > 0) parts.push(`${formatQty(record.looseQty)}闪`);
+  if (record.looseQty > 0) parts.push(`${formatQty(record.looseQty)}件`);
   return parts.join(" ");
 }
 
