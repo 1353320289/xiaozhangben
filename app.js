@@ -1,4 +1,5 @@
 const STORAGE_KEY = "piecework-calendar-v1";
+const BUNDLE_SIZE = 12;
 
 const state = {
   records: loadRecords(),
@@ -22,7 +23,6 @@ const els = {
   form: document.querySelector("#workForm"),
   goods: document.querySelector("#goodsInput"),
   price: document.querySelector("#priceInput"),
-  bundle: document.querySelector("#bundleInput"),
   dozen: document.querySelector("#dozenInput"),
   loose: document.querySelector("#looseInput"),
   trashBtn: document.querySelector("#trashBtn"),
@@ -68,7 +68,6 @@ function bindEvents() {
     event.preventDefault();
     const goods = els.goods.value.trim();
     const price = parseMoney(els.price.value);
-    const bundleSize = parseMoney(els.bundle.value || "12");
     const dozenQty = parseMoney(els.dozen.value || "0");
     const looseQty = parseMoney(els.loose.value || "0");
 
@@ -78,10 +77,6 @@ function bindEvents() {
     }
     if (!Number.isFinite(price) || price <= 0) {
       els.price.focus();
-      return;
-    }
-    if (!Number.isFinite(bundleSize) || bundleSize <= 0) {
-      els.bundle.focus();
       return;
     }
     if (!Number.isFinite(dozenQty) || dozenQty < 0) {
@@ -102,14 +97,12 @@ function bindEvents() {
       date: state.selectedDate,
       goods,
       price: roundMoney(price),
-      bundleSize: roundMoney(bundleSize),
       dozenQty: roundMoney(dozenQty),
       looseQty: roundMoney(looseQty)
     });
 
     saveRecords();
     els.form.reset();
-    els.bundle.value = "12";
     render();
     els.goods.focus();
   });
@@ -226,7 +219,7 @@ function renderWorkList(records) {
     <li class="work-item">
       <div>
         <span class="work-name">${escapeHtml(record.goods)}</span>
-        <span class="work-meta">${currency(record.price)}/打 × ${formatDozens(recordDozens(record))}打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}散</span>
+        <span class="work-meta">${currency(record.price)}/打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}闪</span>
       </div>
       <div class="work-actions">
         <span class="work-total">${currency(recordTotal(record))}</span>
@@ -243,7 +236,7 @@ function renderTrashList(records) {
     <li class="work-item">
       <div>
         <span class="work-name">${escapeHtml(record.goods)}</span>
-        <span class="work-meta">${formatShortDate(record.date)} · ${currency(record.price)}/打 × ${formatDozens(recordDozens(record))}打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}散</span>
+        <span class="work-meta">${formatShortDate(record.date)} · ${currency(record.price)}/打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}闪</span>
       </div>
       <div class="work-actions">
         <span class="work-total">${currency(recordTotal(record))}</span>
@@ -279,12 +272,11 @@ function deletedRecordsList() {
 }
 
 function recordTotal(record) {
-  return roundMoney(record.price * recordDozens(record));
+  return roundMoney((record.price * (record.dozenQty || 0)) + ((record.price / BUNDLE_SIZE) * (record.looseQty || 0)));
 }
 
 function recordDozens(record) {
-  const bundleSize = record.bundleSize || 1;
-  return (record.dozenQty || 0) + ((record.looseQty || 0) / bundleSize);
+  return (record.dozenQty || 0) + ((record.looseQty || 0) / BUNDLE_SIZE);
 }
 
 function sumRecords(records) {
@@ -354,7 +346,6 @@ function normalizeRecord(record) {
   if (record.madeQty === undefined) {
     return {
       ...record,
-      bundleSize: 1,
       dozenQty: record.qty ?? 0,
       looseQty: 0
     };
