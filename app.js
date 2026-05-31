@@ -123,7 +123,7 @@ function render() {
   const selectedTotal = sumRecords(selectedRecords);
   const days = new Set(monthRecords.map((record) => record.date)).size;
 
-  els.monthLabel.textContent = `${formatMonth(state.activeMonth)}总计`;
+  els.monthLabel.textContent = "本月总计";
   els.monthTotal.textContent = currency(total);
   els.workDays.textContent = `${days} 天`;
   els.dayTotal.textContent = currency(selectedTotal);
@@ -169,7 +169,7 @@ function renderCalendar(monthRecords) {
       <button class="${classes}" type="button" data-date="${key}">
         <span class="day-number">${day}</span>
         ${total > 0 ? `<span class="day-money">${currency(total)}</span>` : ""}
-        ${count > 0 ? `<span class="day-count">${count} 笔</span>` : ""}
+        ${count > 0 ? `<span class="day-count">${count}笔</span>` : ""}
       </button>
     `);
   }

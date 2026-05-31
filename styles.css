@@ -1,6 +1,5 @@
 :root {
   color-scheme: light;
-  --bg: #f6f2e8;
   --paper: #fffdf7;
   --ink: #17211c;
   --muted: #6b746e;
@@ -9,7 +8,7 @@
   --green-soft: #dff1e5;
   --amber: #b7791f;
   --danger: #b42318;
-  --shadow: 0 16px 42px rgba(33, 42, 35, 0.12);
+  --shadow: 0 10px 30px rgba(33, 42, 35, 0.1);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -19,7 +18,7 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(circle at top left, rgba(223, 241, 229, 0.9), transparent 32rem),
     linear-gradient(135deg, #f6f2e8 0%, #eef5ef 58%, #fbf3e5 100%);
@@ -36,34 +35,19 @@ button {
 }
 
 .app-shell {
-  width: min(100%, 900px);
+  width: min(100%, 760px);
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: max(18px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  padding: max(8px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
 }
 
-.topbar,
-.section-title,
-.month-tools {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  min-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
 }
 
-.topbar {
-  margin-bottom: 16px;
-}
-
-.eyebrow,
-.summary-panel p,
-.summary-side span,
-label,
-.work-meta {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.eyebrow,
 h1,
 h2,
 p {
@@ -71,112 +55,130 @@ p {
 }
 
 h1 {
-  font-size: 30px;
+  font-size: 19px;
 }
 
 h2 {
-  font-size: 18px;
+  font-size: 15px;
 }
 
-.install-button,
-.primary-button,
+.work-board,
+.entry-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 253, 247, 0.94);
+}
+
+.work-board {
+  padding: 8px;
+  box-shadow: var(--shadow);
+}
+
+.month-tools,
+.day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.month-tools {
+  margin-bottom: 6px;
+}
+
+.month-title {
+  text-align: center;
+}
+
+.month-title span,
+.total-row span,
+label,
+.work-meta,
+.empty-state {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.month-title span {
+  display: block;
+  margin-top: 1px;
+}
+
 .icon-button,
+.primary-button,
+.install-button,
 .delete-button {
   border: 0;
   border-radius: 8px;
 }
 
-.install-button {
-  min-height: 42px;
-  padding: 0 16px;
-  background: var(--green);
-  color: white;
-  font-weight: 700;
-}
-
-.summary-panel,
-.calendar-panel,
-.entry-panel {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 253, 247, 0.92);
-}
-
-.summary-panel {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 18px;
-  padding: 20px;
-  background: linear-gradient(135deg, #fffdf7, #e7f5eb);
-  box-shadow: var(--shadow);
-}
-
-.summary-panel strong {
-  display: block;
-}
-
-#monthTotal {
-  margin-top: 4px;
-  font-size: clamp(38px, 9vw, 64px);
-  line-height: 1;
-}
-
-.summary-side {
-  display: grid;
-  align-content: center;
-  gap: 4px;
-  min-width: 94px;
-}
-
-.summary-side strong {
-  margin-bottom: 8px;
-  font-size: 20px;
-}
-
-.calendar-panel,
-.entry-panel {
-  margin-top: 14px;
-  padding: 14px;
-}
-
-.month-tools {
-  margin-bottom: 12px;
-}
-
 .icon-button {
-  width: 42px;
-  height: 42px;
-  background: var(--green-soft);
+  width: 36px;
+  height: 34px;
+  background: transparent;
   color: var(--green);
-  font-size: 28px;
+  font-size: 26px;
   line-height: 1;
+}
+
+.total-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 9px;
+  margin-bottom: 7px;
+  border-radius: 8px;
+  background: var(--green-soft);
+}
+
+.total-row strong {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.total-row span {
+  display: grid;
+  gap: 1px;
+  text-align: right;
+}
+
+.total-row b,
+#selectedDateTotal,
+.work-total {
+  color: var(--green);
+}
+
+.total-row b {
+  font-size: 13px;
 }
 
 .week-row,
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
 }
 
 .week-row {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
 }
 
 .day-cell {
   display: grid;
   align-content: start;
-  gap: 4px;
-  min-height: 76px;
-  padding: 8px;
+  gap: 1px;
+  min-height: 43px;
+  padding: 4px;
   border: 1px solid #e9e1d4;
-  border-radius: 8px;
+  border-radius: 7px;
   background: white;
   color: var(--ink);
-  text-align: left;
+  text-align: center;
 }
 
 .day-cell.blank {
@@ -193,160 +195,167 @@ h2 {
 }
 
 .day-number {
+  font-size: 13px;
   font-weight: 800;
 }
 
 .day-money {
   color: var(--green);
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 800;
   overflow-wrap: anywhere;
 }
 
 .day-count {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 9px;
 }
 
-.section-title {
-  margin-bottom: 12px;
+.entry-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 9px;
 }
 
-#selectedDateTotal {
-  color: var(--green);
+.day-head {
+  margin-bottom: 7px;
+}
+
+#selectedDateTotal,
+.work-name,
+.work-total {
   font-weight: 800;
 }
 
 form {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-label {
-  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px 70px 58px;
   gap: 6px;
 }
 
-label.wide,
-.primary-button {
-  grid-column: 1 / -1;
+label {
+  display: block;
+  min-width: 0;
+}
+
+label span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
 }
 
 input {
   width: 100%;
-  min-height: 46px;
+  min-height: 38px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 7px;
   background: white;
   color: var(--ink);
-  padding: 0 12px;
+  padding: 0 9px;
 }
 
 .primary-button {
-  min-height: 46px;
+  min-height: 38px;
   background: var(--green);
   color: white;
   font-weight: 800;
 }
 
 .empty-state {
-  padding: 18px 0 4px;
-  color: var(--muted);
+  padding: 12px 0 2px;
   text-align: center;
 }
 
 .work-list {
   display: grid;
-  gap: 8px;
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
   padding: 0;
-  margin: 14px 0 0;
+  margin: 8px 0 0;
   list-style: none;
 }
 
 .work-item {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  min-height: 62px;
-  padding: 10px;
+  min-height: 48px;
+  padding: 7px;
   border: 1px solid #ece4d8;
-  border-radius: 8px;
+  border-radius: 7px;
   background: white;
-}
-
-.work-name,
-.work-total {
-  font-weight: 800;
 }
 
 .work-meta {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .work-actions {
-  display: grid;
-  justify-items: end;
-  gap: 5px;
-}
-
-.work-total {
-  color: var(--green);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .delete-button {
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 8px;
   background: #f8e5e1;
   color: var(--danger);
 }
 
+.install-button {
+  position: fixed;
+  right: 10px;
+  bottom: 10px;
+  min-height: 42px;
+  padding: 0 16px;
+  background: var(--green);
+  color: white;
+  font-weight: 700;
+}
+
 @media (max-width: 560px) {
-  .app-shell {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-
-  .summary-panel {
-    grid-template-columns: 1fr;
-  }
-
-  .summary-side {
-    grid-template-columns: auto 1fr;
-    align-items: baseline;
-  }
-
-  .summary-side strong {
-    margin-bottom: 0;
-  }
-
-  .calendar-panel {
-    padding: 10px;
-  }
-
-  .week-row,
-  .calendar-grid {
-    gap: 4px;
+  .total-row strong {
+    font-size: 24px;
   }
 
   .day-cell {
-    min-height: 64px;
-    padding: 6px;
-  }
-
-  .day-money,
-  .day-count {
-    font-size: 10px;
+    min-height: 40px;
+    padding: 3px;
   }
 
   form {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) 74px 56px;
   }
 
-  label.wide,
   .primary-button {
-    grid-column: auto;
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-height: 720px) and (max-width: 560px) {
+  .day-cell {
+    min-height: 34px;
+  }
+
+  .day-count {
+    display: none;
+  }
+
+  .total-row {
+    min-height: 32px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  .total-row strong {
+    font-size: 21px;
   }
 }
