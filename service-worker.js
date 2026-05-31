@@ -1,4 +1,4 @@
-const CACHE_NAME = "piecework-calendar-v9";
+const CACHE_NAME = "piecework-calendar-v12";
 const ASSETS = [
   "./",
   "./index.html",

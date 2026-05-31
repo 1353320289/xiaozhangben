@@ -15,7 +15,7 @@
   </head>
   <body>
     <div class="app-shell">
-      <main>
+      <main id="appView">
         <section class="work-board" aria-label="工货日历">
           <div class="month-tools">
             <button class="icon-button" id="prevMonth" type="button" aria-label="上个月">‹</button>
@@ -78,19 +78,20 @@
           <ul id="workList" class="work-list"></ul>
         </section>
       </main>
+
+      <main id="reportView" hidden style="display: none;">
+        <section class="report-page" aria-label="生成报告">
+          <div class="report-head">
+            <h1>本月报告</h1>
+            <button class="close-button" id="closeReportBtn" type="button">返回</button>
+          </div>
+          <textarea id="reportText" readonly></textarea>
+          <button class="copy-button" id="copyReportBtn" type="button">复制 TXT</button>
+        </section>
+      </main>
+
       <button class="install-button" id="installBtn" type="button" hidden>安装</button>
     </div>
-
-    <section class="report-panel" id="reportPanel" aria-label="生成报告" hidden style="display: none;">
-      <div class="report-card">
-        <div class="report-head">
-          <h2>本月报告</h2>
-          <button class="close-button" id="closeReportBtn" type="button">关闭</button>
-        </div>
-        <textarea id="reportText" readonly></textarea>
-        <button class="copy-button" id="copyReportBtn" type="button">复制 TXT</button>
-      </div>
-    </section>
 
     <script src="app.js" defer></script>
   </body>

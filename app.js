@@ -6,10 +6,13 @@ const state = {
   records: loadRecords(),
   selectedDate: dateKey(new Date()),
   activeMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  showTrash: false
+  showTrash: false,
+  view: "app"
 };
 
 const els = {
+  appView: document.querySelector("#appView"),
+  reportView: document.querySelector("#reportView"),
   installBtn: document.querySelector("#installBtn"),
   monthLabel: document.querySelector("#monthLabel"),
   monthTotal: document.querySelector("#monthTotal"),
@@ -27,7 +30,6 @@ const els = {
   dozen: document.querySelector("#dozenInput"),
   loose: document.querySelector("#looseInput"),
   reportBtn: document.querySelector("#reportBtn"),
-  reportPanel: document.querySelector("#reportPanel"),
   reportText: document.querySelector("#reportText"),
   closeReportBtn: document.querySelector("#closeReportBtn"),
   copyReportBtn: document.querySelector("#copyReportBtn"),
@@ -44,7 +46,6 @@ function init() {
   state.records = keepCurrentMonthRecords(state.records);
   saveRecords();
   requestPersistentStorage();
-  closeReportPanel();
   bindEvents();
   render();
 
@@ -145,12 +146,13 @@ function bindEvents() {
 
   els.reportBtn.addEventListener("click", () => {
     els.reportText.value = buildReport();
-    els.reportPanel.hidden = false;
-    els.reportPanel.style.display = "grid";
+    state.view = "report";
+    render();
   });
 
   els.closeReportBtn.addEventListener("click", () => {
-    closeReportPanel();
+    state.view = "app";
+    render();
   });
 
   els.copyReportBtn.addEventListener("click", copyReport);
@@ -171,6 +173,8 @@ function bindEvents() {
 }
 
 function render() {
+  setViewVisibility();
+
   const monthRecords = recordsForMonth(state.activeMonth);
   const selectedRecords = recordsForDate(state.selectedDate);
   const deletedRecords = deletedRecordsList();
@@ -306,9 +310,12 @@ async function copyReport() {
   }, 1200);
 }
 
-function closeReportPanel() {
-  els.reportPanel.hidden = true;
-  els.reportPanel.style.display = "none";
+function setViewVisibility() {
+  const isReport = state.view === "report";
+  els.appView.hidden = isReport;
+  els.appView.style.display = isReport ? "none" : "grid";
+  els.reportView.hidden = !isReport;
+  els.reportView.style.display = isReport ? "grid" : "none";
 }
 
 function selectFirstVisibleDay() {
