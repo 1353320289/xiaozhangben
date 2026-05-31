@@ -320,42 +320,46 @@ function renderTrashList(records) {
   `).join("");
 }
 
-function buildReportRows(sourceRecords = recordsForMonth(state.activeMonth)) {
-  const days = new Map();
+function buildReportCards(sourceRecords = recordsForMonth(state.activeMonth)) {
+  const goodsGroups = new Map();
   sourceRecords
     .slice()
-    .sort((a, b) => a.date.localeCompare(b.date) || a.goods.localeCompare(b.goods, "zh-CN"))
+    .sort((a, b) => a.goods.localeCompare(b.goods, "zh-CN") || a.date.localeCompare(b.date))
     .forEach((record) => {
-      if (!days.has(record.date)) days.set(record.date, new Map());
-      const goods = days.get(record.date);
-      if (!goods.has(record.goods)) goods.set(record.goods, { dozenQty: 0, looseQty: 0 });
-      const total = goods.get(record.goods);
+      if (!goodsGroups.has(record.goods)) goodsGroups.set(record.goods, new Map());
+      const dates = goodsGroups.get(record.goods);
+      if (!dates.has(record.date)) dates.set(record.date, { dozenQty: 0, looseQty: 0 });
+      const total = dates.get(record.date);
       total.dozenQty = roundMoney(total.dozenQty + (record.dozenQty || 0));
       total.looseQty = roundMoney(total.looseQty + (record.looseQty || 0));
     });
 
-  return [...days.entries()].map(([date, goods]) => ({
-    date,
-    day: formatDayOnly(date),
-    items: [...goods.entries()].map(([name, qty]) => ({
-      name,
-      qty: formatReportQty(qty)
-    }))
+  return [...goodsGroups.entries()].map(([name, dates]) => ({
+    name,
+    rows: [...dates.entries()]
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([date, qty]) => ({
+        day: formatDayOnly(date),
+        qty: formatReportQty(qty)
+      }))
   }));
 }
 
-function drawReport(rows = buildReportRows()) {
+function drawReport(cards = buildReportCards()) {
   const canvas = els.reportCanvas;
   const ctx = canvas.getContext("2d");
   const width = 900;
-  const padding = 24;
-  const dayColumn = 112;
-  const rowHeight = 48;
-  const lineGap = 10;
-  const groupGap = 10;
-  const rowsToDraw = rows.length ? rows : [{ day: "", items: [{ name: "本月还没有做货记录", qty: "" }] }];
-  const height = padding * 2 + rowsToDraw.reduce((sum, row) => {
-    return sum + Math.max(row.items.length, 1) * rowHeight + groupGap;
+  const padding = 20;
+  const cardGap = 12;
+  const titleHeight = 48;
+  const chipHeight = 42;
+  const chipGap = 8;
+  const chipWidth = 200;
+  const columns = 4;
+  const innerPadding = 16;
+  const cardsToDraw = cards.length ? cards : [{ name: "暂无记录", rows: [{ day: "", qty: "本月还没有做货记录" }] }];
+  const height = padding * 2 + cardsToDraw.reduce((sum, card) => {
+    return sum + reportCardHeight(card.rows.length, columns, titleHeight, chipHeight, chipGap, innerPadding) + cardGap;
   }, 0);
 
   canvas.width = width;
@@ -364,34 +368,40 @@ function drawReport(rows = buildReportRows()) {
   ctx.fillRect(0, 0, width, height);
 
   let y = padding;
-  rowsToDraw.forEach((row) => {
-    const blockHeight = Math.max(row.items.length, 1) * rowHeight;
-    roundRect(ctx, padding, y, width - padding * 2, blockHeight, 14, "#fffdf7");
+  cardsToDraw.forEach((card) => {
+    const cardHeight = reportCardHeight(card.rows.length, columns, titleHeight, chipHeight, chipGap, innerPadding);
+    roundRect(ctx, padding, y, width - padding * 2, cardHeight, 16, "#fffdf7");
 
     ctx.fillStyle = "#166534";
     ctx.font = "800 34px system-ui, sans-serif";
-    ctx.fillText(row.day, padding + 18, y + 36);
+    ctx.fillText(fitText(ctx, card.name, width - padding * 2 - innerPadding * 2), padding + innerPadding, y + 36);
 
-    row.items.forEach((item, index) => {
-      const rowY = y + 34 + index * rowHeight;
+    card.rows.forEach((row, index) => {
+      const column = index % columns;
+      const line = Math.floor(index / columns);
+      const chipX = padding + innerPadding + column * (chipWidth + chipGap);
+      const chipY = y + titleHeight + line * (chipHeight + chipGap);
+      roundRect(ctx, chipX, chipY, chipWidth, chipHeight, 11, "#eef7ef");
+
+      ctx.fillStyle = "#166534";
+      ctx.font = "800 24px system-ui, sans-serif";
+      ctx.fillText(row.day, chipX + 10, chipY + 28);
       ctx.fillStyle = "#17211c";
-      ctx.font = "800 32px system-ui, sans-serif";
-      ctx.fillText(fitText(ctx, item.name, width - padding * 2 - dayColumn - 220), padding + dayColumn, rowY);
       ctx.textAlign = "right";
-      ctx.font = "800 32px system-ui, sans-serif";
-      ctx.fillText(fitText(ctx, item.qty, 190), width - padding - 18, rowY);
+      ctx.font = "800 24px system-ui, sans-serif";
+      ctx.fillText(fitText(ctx, row.qty, 116), chipX + chipWidth - 10, chipY + 28);
       ctx.textAlign = "left";
-
-      if (index < row.items.length - 1) {
-        ctx.fillStyle = "#ece4d8";
-        ctx.fillRect(padding + dayColumn, y + rowHeight * (index + 1), width - padding * 2 - dayColumn - 18, 1);
-      }
     });
 
-    y += blockHeight + groupGap + lineGap;
+    y += cardHeight + cardGap;
   });
 
   els.reportImage.src = canvas.toDataURL("image/png");
+}
+
+function reportCardHeight(rowCount, columns, titleHeight, chipHeight, chipGap, innerPadding) {
+  const lines = Math.max(1, Math.ceil(rowCount / columns));
+  return titleHeight + innerPadding + lines * chipHeight + (lines - 1) * chipGap;
 }
 
 async function login() {
