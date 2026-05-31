@@ -272,7 +272,7 @@ label,
 
 .entry-panel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   min-height: 0;
   padding: 9px;
 }
@@ -312,6 +312,41 @@ form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 74px 58px 58px 54px;
   gap: 6px;
+}
+
+.quick-goods {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 7px 0 0;
+}
+
+.quick-goods button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  max-width: 170px;
+  padding: 0 9px;
+  border: 1px solid #d8eadc;
+  border-radius: 8px;
+  background: #f3faf4;
+  color: var(--green);
+  text-align: left;
+}
+
+.quick-goods b,
+.quick-goods span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-goods b {
+  font-size: 12px;
+}
+
+.quick-goods span {
+  font-size: 11px;
 }
 
 label {

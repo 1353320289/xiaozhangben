@@ -44,6 +44,7 @@ const els = {
   price: document.querySelector("#priceInput"),
   dozen: document.querySelector("#dozenInput"),
   loose: document.querySelector("#looseInput"),
+  quickGoods: document.querySelector("#quickGoods"),
   reportBtn: document.querySelector("#reportBtn"),
   reportCanvas: document.querySelector("#reportCanvas"),
   reportImage: document.querySelector("#reportImage"),
@@ -117,6 +118,7 @@ function bindEvents() {
     state.selectedDate = button.dataset.date;
     state.showTrash = false;
     render();
+    fillLatestGoods();
   });
 
   els.form.addEventListener("submit", async (event) => {
@@ -160,7 +162,8 @@ function bindEvents() {
     await syncRecords();
     els.form.reset();
     render();
-    els.goods.focus();
+    fillLatestGoods();
+    els.dozen.focus();
   });
 
   els.list.addEventListener("click", async (event) => {
@@ -184,6 +187,12 @@ function bindEvents() {
     saveRecords();
     await syncRecords();
     render();
+  });
+
+  els.quickGoods.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-goods]");
+    if (!button) return;
+    fillGoods(button.dataset.goods, button.dataset.price);
   });
 
   els.trashBtn.addEventListener("click", () => {
@@ -240,7 +249,19 @@ function render() {
   els.trashBtn.textContent = state.showTrash ? "返回" : `回收站${deletedRecords.length ? ` ${deletedRecords.length}` : ""}`;
 
   renderCalendar(monthRecords);
+  renderQuickGoods();
   state.showTrash ? renderTrashList(deletedRecords) : renderWorkList(selectedRecords);
+}
+
+function renderQuickGoods() {
+  const items = frequentGoods();
+  els.quickGoods.hidden = state.showTrash || !items.length;
+  els.quickGoods.innerHTML = items.map((item) => `
+    <button type="button" data-goods="${escapeHtml(item.goods)}" data-price="${item.price}">
+      <b>${escapeHtml(item.goods)}</b>
+      <span>${moneyText(item.price)}</span>
+    </button>
+  `).join("");
 }
 
 function renderCalendar(monthRecords) {
@@ -487,6 +508,44 @@ async function enterAccount(user) {
   await syncRecords();
   state.syncStatus = "已同步";
   render();
+  fillLatestGoods();
+}
+
+function frequentGoods() {
+  const items = new Map();
+  state.records
+    .filter((record) => !record.deletedAt)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .forEach((record) => {
+      const key = `${record.goods}::${record.price}`;
+      const current = items.get(key) || { goods: record.goods, price: record.price, count: 0, latest: record.date };
+      current.count += 1;
+      if (record.date > current.latest) current.latest = record.date;
+      items.set(key, current);
+    });
+
+  return [...items.values()]
+    .sort((a, b) => b.count - a.count || b.latest.localeCompare(a.latest))
+    .slice(0, 6);
+}
+
+function latestGoods() {
+  return state.records
+    .filter((record) => !record.deletedAt)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    [0];
+}
+
+function fillLatestGoods() {
+  if (state.showTrash || els.goods.value || els.price.value) return;
+  const latest = latestGoods();
+  if (latest) fillGoods(latest.goods, latest.price, false);
+}
+
+function fillGoods(goods, price, focusQuantity = true) {
+  els.goods.value = goods || "";
+  els.price.value = price ? `${roundMoney(Number(price))}` : "";
+  if (focusQuantity) els.dozen.focus();
 }
 
 async function fetchCloudRecords() {
