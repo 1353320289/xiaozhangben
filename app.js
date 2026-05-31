@@ -320,49 +320,42 @@ function renderTrashList(records) {
   `).join("");
 }
 
-function buildReportGroups(sourceRecords = recordsForMonth(state.activeMonth)) {
-  const records = sourceRecords.sort((a, b) => {
-    if (a.goods === b.goods) return a.date.localeCompare(b.date);
-    return a.goods.localeCompare(b.goods, "zh-CN");
-  });
+function buildReportRows(sourceRecords = recordsForMonth(state.activeMonth)) {
+  const days = new Map();
+  sourceRecords
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date) || a.goods.localeCompare(b.goods, "zh-CN"))
+    .forEach((record) => {
+      if (!days.has(record.date)) days.set(record.date, new Map());
+      const goods = days.get(record.date);
+      if (!goods.has(record.goods)) goods.set(record.goods, { dozenQty: 0, looseQty: 0 });
+      const total = goods.get(record.goods);
+      total.dozenQty = roundMoney(total.dozenQty + (record.dozenQty || 0));
+      total.looseQty = roundMoney(total.looseQty + (record.looseQty || 0));
+    });
 
-  if (!records.length) {
-    return [];
-  }
-
-  const grouped = new Map();
-  records.forEach((record) => {
-    if (!grouped.has(record.goods)) grouped.set(record.goods, new Map());
-    const dates = grouped.get(record.goods);
-    if (!dates.has(record.date)) dates.set(record.date, { dozenQty: 0, looseQty: 0 });
-    const total = dates.get(record.date);
-    total.dozenQty = roundMoney(total.dozenQty + (record.dozenQty || 0));
-    total.looseQty = roundMoney(total.looseQty + (record.looseQty || 0));
-  });
-
-  return [...grouped.entries()].map(([goods, dates]) => ({
-    goods,
-    rows: [...dates.entries()]
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-      .map(([date, qty]) => ({
-        day: formatDayOnly(date),
-        qty: formatReportQty(qty)
-      }))
+  return [...days.entries()].map(([date, goods]) => ({
+    date,
+    day: formatDayOnly(date),
+    items: [...goods.entries()].map(([name, qty]) => ({
+      name,
+      qty: formatReportQty(qty)
+    }))
   }));
 }
 
-function drawReport(groups = buildReportGroups()) {
+function drawReport(rows = buildReportRows()) {
   const canvas = els.reportCanvas;
   const ctx = canvas.getContext("2d");
   const width = 900;
-  const padding = 34;
-  const cardGap = 16;
-  const rowHeight = 34;
-  const cardHeader = 46;
-  const cardPadding = 18;
-  const groupsToDraw = groups.length ? groups : [{ goods: "暂无记录", rows: [{ day: "", qty: "本月还没有做货记录" }] }];
-  const height = padding * 2 + 74 + groupsToDraw.reduce((sum, group) => {
-    return sum + cardHeader + cardPadding + Math.ceil(group.rows.length / 3) * rowHeight + cardGap;
+  const padding = 24;
+  const dayColumn = 112;
+  const rowHeight = 48;
+  const lineGap = 10;
+  const groupGap = 10;
+  const rowsToDraw = rows.length ? rows : [{ day: "", items: [{ name: "本月还没有做货记录", qty: "" }] }];
+  const height = padding * 2 + rowsToDraw.reduce((sum, row) => {
+    return sum + Math.max(row.items.length, 1) * rowHeight + groupGap;
   }, 0);
 
   canvas.width = width;
@@ -370,34 +363,32 @@ function drawReport(groups = buildReportGroups()) {
   ctx.fillStyle = "#f7f2e8";
   ctx.fillRect(0, 0, width, height);
 
-  ctx.fillStyle = "#17211c";
-  ctx.font = "700 34px system-ui, sans-serif";
-  ctx.fillText("做货报告", padding, 58);
-  ctx.fillStyle = "#6b746e";
-  ctx.font = "22px system-ui, sans-serif";
-  ctx.fillText(`上班 ${countReportDays(groupsToDraw)} 天`, padding, 94);
-
-  let y = 122;
-  groupsToDraw.forEach((group) => {
-    const rows = Math.ceil(group.rows.length / 3);
-    const cardHeight = cardHeader + cardPadding + rows * rowHeight;
-    roundRect(ctx, padding, y, width - padding * 2, cardHeight, 18, "#fffdf7");
+  let y = padding;
+  rowsToDraw.forEach((row) => {
+    const blockHeight = Math.max(row.items.length, 1) * rowHeight;
+    roundRect(ctx, padding, y, width - padding * 2, blockHeight, 14, "#fffdf7");
 
     ctx.fillStyle = "#166534";
-    ctx.font = "700 26px system-ui, sans-serif";
-    ctx.fillText(group.goods, padding + 22, y + 34);
+    ctx.font = "800 34px system-ui, sans-serif";
+    ctx.fillText(row.day, padding + 18, y + 36);
 
-    ctx.font = "20px system-ui, sans-serif";
-    group.rows.forEach((row, index) => {
-      const column = index % 3;
-      const line = Math.floor(index / 3);
-      const x = padding + 22 + column * 265;
-      const rowY = y + cardHeader + 24 + line * rowHeight;
+    row.items.forEach((item, index) => {
+      const rowY = y + 34 + index * rowHeight;
       ctx.fillStyle = "#17211c";
-      ctx.fillText(row.day ? `${row.day}  ${row.qty}` : row.qty, x, rowY);
+      ctx.font = "800 32px system-ui, sans-serif";
+      ctx.fillText(fitText(ctx, item.name, width - padding * 2 - dayColumn - 220), padding + dayColumn, rowY);
+      ctx.textAlign = "right";
+      ctx.font = "800 32px system-ui, sans-serif";
+      ctx.fillText(fitText(ctx, item.qty, 190), width - padding - 18, rowY);
+      ctx.textAlign = "left";
+
+      if (index < row.items.length - 1) {
+        ctx.fillStyle = "#ece4d8";
+        ctx.fillRect(padding + dayColumn, y + rowHeight * (index + 1), width - padding * 2 - dayColumn - 18, 1);
+      }
     });
 
-    y += cardHeight + cardGap;
+    y += blockHeight + groupGap + lineGap;
   });
 
   els.reportImage.src = canvas.toDataURL("image/png");
@@ -673,12 +664,15 @@ function formatReportQty(record) {
   return parts.join(" ");
 }
 
-function countReportDays(groups) {
-  const days = new Set();
-  groups.forEach((group) => group.rows.forEach((row) => {
-    if (row.day) days.add(row.day);
-  }));
-  return days.size;
+function fitText(ctx, text, maxWidth) {
+  const value = String(text || "");
+  if (ctx.measureText(value).width <= maxWidth) return value;
+
+  let clipped = value;
+  while (clipped.length > 1 && ctx.measureText(`${clipped}...`).width > maxWidth) {
+    clipped = clipped.slice(0, -1);
+  }
+  return `${clipped}...`;
 }
 
 function roundRect(ctx, x, y, width, height, radius, color) {
