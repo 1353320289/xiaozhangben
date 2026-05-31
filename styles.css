@@ -247,7 +247,7 @@ label,
 
 form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 74px 68px 68px 54px;
+  grid-template-columns: minmax(0, 1fr) 74px 68px 58px 58px 54px;
   gap: 6px;
 }
 
@@ -356,7 +356,7 @@ input {
   }
 
   form {
-    grid-template-columns: minmax(0, 1fr) 64px 64px 64px;
+    grid-template-columns: minmax(0, 1fr) 62px 62px;
   }
 
   .primary-button {

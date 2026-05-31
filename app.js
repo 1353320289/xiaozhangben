@@ -23,7 +23,8 @@ const els = {
   goods: document.querySelector("#goodsInput"),
   price: document.querySelector("#priceInput"),
   bundle: document.querySelector("#bundleInput"),
-  made: document.querySelector("#madeInput"),
+  dozen: document.querySelector("#dozenInput"),
+  loose: document.querySelector("#looseInput"),
   trashBtn: document.querySelector("#trashBtn"),
   empty: document.querySelector("#emptyState"),
   list: document.querySelector("#workList")
@@ -68,7 +69,8 @@ function bindEvents() {
     const goods = els.goods.value.trim();
     const price = parseMoney(els.price.value);
     const bundleSize = parseMoney(els.bundle.value || "12");
-    const madeQty = parseMoney(els.made.value);
+    const dozenQty = parseMoney(els.dozen.value || "0");
+    const looseQty = parseMoney(els.loose.value || "0");
 
     if (!goods) {
       els.goods.focus();
@@ -82,8 +84,16 @@ function bindEvents() {
       els.bundle.focus();
       return;
     }
-    if (!Number.isFinite(madeQty) || madeQty <= 0) {
-      els.made.focus();
+    if (!Number.isFinite(dozenQty) || dozenQty < 0) {
+      els.dozen.focus();
+      return;
+    }
+    if (!Number.isFinite(looseQty) || looseQty < 0) {
+      els.loose.focus();
+      return;
+    }
+    if (dozenQty === 0 && looseQty === 0) {
+      els.dozen.focus();
       return;
     }
 
@@ -93,7 +103,8 @@ function bindEvents() {
       goods,
       price: roundMoney(price),
       bundleSize: roundMoney(bundleSize),
-      madeQty: roundMoney(madeQty)
+      dozenQty: roundMoney(dozenQty),
+      looseQty: roundMoney(looseQty)
     });
 
     saveRecords();
@@ -215,7 +226,7 @@ function renderWorkList(records) {
     <li class="work-item">
       <div>
         <span class="work-name">${escapeHtml(record.goods)}</span>
-        <span class="work-meta">${currency(record.price)}/打 × ${formatDozens(recordDozens(record))}打 · ${formatQty(record.madeQty)}个/${formatQty(record.bundleSize)}个</span>
+        <span class="work-meta">${currency(record.price)}/打 × ${formatDozens(recordDozens(record))}打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}散</span>
       </div>
       <div class="work-actions">
         <span class="work-total">${currency(recordTotal(record))}</span>
@@ -232,7 +243,7 @@ function renderTrashList(records) {
     <li class="work-item">
       <div>
         <span class="work-name">${escapeHtml(record.goods)}</span>
-        <span class="work-meta">${formatShortDate(record.date)} · ${currency(record.price)}/打 × ${formatDozens(recordDozens(record))}打</span>
+        <span class="work-meta">${formatShortDate(record.date)} · ${currency(record.price)}/打 × ${formatDozens(recordDozens(record))}打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}散</span>
       </div>
       <div class="work-actions">
         <span class="work-total">${currency(recordTotal(record))}</span>
@@ -273,8 +284,7 @@ function recordTotal(record) {
 
 function recordDozens(record) {
   const bundleSize = record.bundleSize || 1;
-  const madeQty = record.madeQty ?? record.qty ?? 0;
-  return madeQty / bundleSize;
+  return (record.dozenQty || 0) + ((record.looseQty || 0) / bundleSize);
 }
 
 function sumRecords(records) {
@@ -335,14 +345,25 @@ function formatShortDate(key) {
 }
 
 function normalizeRecord(record) {
+  if (record.dozenQty !== undefined) {
+    return {
+      ...record,
+      looseQty: record.looseQty ?? 0
+    };
+  }
   if (record.madeQty === undefined) {
     return {
       ...record,
       bundleSize: 1,
-      madeQty: record.qty ?? 0
+      dozenQty: record.qty ?? 0,
+      looseQty: 0
     };
   }
-  return record;
+  return {
+    ...record,
+    dozenQty: 0,
+    looseQty: record.madeQty
+  };
 }
 
 function currency(value) {
