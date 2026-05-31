@@ -115,8 +115,7 @@ label,
 .trash-button,
 .restore-button,
 .report-button,
-.close-button,
-.copy-button {
+.close-button {
   border: 0;
   border-radius: 8px;
 }
@@ -399,17 +398,6 @@ input {
   display: block;
   width: 100%;
   height: auto;
-}
-
-.copy-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 42px;
-  background: var(--green);
-  color: white;
-  font-weight: 800;
-  text-decoration: none;
 }
 
 @media (max-width: 560px) {
