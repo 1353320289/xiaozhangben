@@ -6,18 +6,18 @@
     <meta name="theme-color" content="#166534">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="工货日历">
-    <title>工货日历</title>
-    <link rel="manifest" href="manifest.webmanifest?v=33">
-    <link rel="icon" href="assets/app-icon-192.png?v=33" type="image/png">
-    <link rel="apple-touch-icon" href="assets/app-icon-192.png?v=33">
-    <link rel="stylesheet" href="styles.css?v=33">
+    <meta name="apple-mobile-web-app-title" content="记账本">
+    <title>记账本</title>
+    <link rel="manifest" href="manifest.webmanifest?v=34">
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/icon.svg">
+    <link rel="stylesheet" href="styles.css?v=34">
   </head>
   <body>
     <div class="app-shell">
       <main id="authView" class="auth-view">
         <section class="auth-card">
-          <h1>做货账本</h1>
+          <h1>记账本</h1>
           <p>账户由管理员创建，登录后记录会保存到云端。</p>
           <form id="authForm">
             <label>
@@ -35,7 +35,7 @@
       </main>
 
       <main id="appView" hidden style="display: none;">
-        <section class="work-board" aria-label="工货日历">
+        <section class="work-board" aria-label="记账本">
           <div class="account-row">
             <span id="accountLabel">未登录</span>
             <span id="syncStatus">本机</span>
@@ -120,7 +120,7 @@
       <button class="install-button" id="installBtn" type="button" hidden>安装</button>
     </div>
 
-    <script src="vendor/supabase.min.js?v=33" defer></script>
-    <script src="app.js?v=33" defer></script>
+    <script src="vendor/supabase.min.js?v=34" defer></script>
+    <script src="app.js?v=34" defer></script>
   </body>
 </html>
