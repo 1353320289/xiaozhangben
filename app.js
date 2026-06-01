@@ -405,15 +405,10 @@ function drawReport(cards = buildReportCards()) {
   const rowHeight = 42;
   const groupNameHeight = 42;
   const groupGap = 28;
-  const columnGap = 34;
   const cardsToDraw = cards.length ? cards : [{ name: "暂无记录", rows: [{ day: "", qty: "本月还没有做货记录" }] }];
-  const totalRows = cardsToDraw.reduce((sum, card) => sum + card.rows.length, 0);
   const fullWidth = width - paddingX * 2;
-  const useTwoColumns = totalRows >= 18;
-  const columnWidth = useTwoColumns ? (fullWidth - columnGap) / 2 : fullWidth;
-  const columns = useTwoColumns ? splitReportColumns(cardsToDraw, rowHeight, groupNameHeight, groupGap) : [cardsToDraw];
-  const columnHeights = columns.map((column) => reportColumnHeight(column, rowHeight, groupNameHeight, groupGap));
-  const height = paddingTop + titleHeight + Math.max(...columnHeights) + 34;
+  const contentHeight = reportColumnHeight(cardsToDraw, rowHeight, groupNameHeight, groupGap);
+  const height = paddingTop + titleHeight + contentHeight + 34;
 
   canvas.width = width;
   canvas.height = height;
@@ -425,14 +420,7 @@ function drawReport(cards = buildReportCards()) {
   ctx.fillText(`${state.activeMonth.getMonth() + 1}月计数`, paddingX, paddingTop + 46);
 
   const contentTop = paddingTop + titleHeight;
-  drawReportColumn(ctx, columns[0], paddingX, contentTop, columnWidth, rowHeight, groupNameHeight, groupGap);
-
-  if (useTwoColumns) {
-    const dividerX = paddingX + columnWidth + columnGap / 2;
-    ctx.fillStyle = "#e5e0d8";
-    ctx.fillRect(dividerX, contentTop - 4, 1, Math.max(...columnHeights), 1);
-    drawReportColumn(ctx, columns[1], paddingX + columnWidth + columnGap, contentTop, columnWidth, rowHeight, groupNameHeight, groupGap);
-  }
+  drawReportColumn(ctx, cardsToDraw, paddingX, contentTop, fullWidth, rowHeight, groupNameHeight, groupGap);
 
   els.reportImage.src = canvas.toDataURL("image/png");
 }
@@ -455,33 +443,6 @@ function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeig
 
     y += groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
   });
-}
-
-function splitReportColumns(cards, rowHeight, groupNameHeight, groupGap) {
-  const totalHeight = reportColumnHeight(cards, rowHeight, groupNameHeight, groupGap);
-  const target = totalHeight / 2;
-  const left = [];
-  const right = [];
-  let current = 0;
-
-  cards.forEach((card, index) => {
-    const height = reportCardHeight(card, rowHeight, groupNameHeight, groupGap);
-    if (!left.length && height > target && card.rows.length > 1) {
-      const splitAt = Math.ceil(card.rows.length / 2);
-      left.push({ ...card, rows: card.rows.slice(0, splitAt) });
-      right.push({ ...card, rows: card.rows.slice(splitAt) });
-      current += reportCardHeight(left[0], rowHeight, groupNameHeight, groupGap);
-      return;
-    }
-    if (index > 0 && current + height > target) {
-      right.push(card);
-      return;
-    }
-    left.push(card);
-    current += height;
-  });
-
-  return [left, right.length ? right : left.splice(Math.ceil(left.length / 2))];
 }
 
 function reportColumnHeight(cards, rowHeight, groupNameHeight, groupGap) {
