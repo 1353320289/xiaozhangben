@@ -47,12 +47,23 @@ async function hasLedgerRecord(date) {
 }
 
 async function sendWechatReminder(date) {
+  const tips = [
+    "今晚的小账本还空着呢。",
+    "今天的做货记录还没落座。",
+    "账本在等你补上今天这一笔。",
+    "今天还没填，别让辛苦白忙一场。",
+    "收工前记一下，明天看账就轻松。"
+  ];
+  const tip = tips[Math.floor(Math.random() * tips.length)];
+
   const content = [
     "## 记账本提醒",
     "",
-    `今天（${date}）还没有填写记账本。`,
+    `**${tip}**`,
     "",
-    "记得补一下今天做货记录。"
+    `今天 ${date} 还没有填写记录。`,
+    "",
+    "> 现在补一下，月底算钱更省心。"
   ].join("\n");
 
   const response = await fetch(WECHAT_WEBHOOK, {
