@@ -338,7 +338,7 @@ function renderWorkList(records) {
     <li class="work-item">
       <div>
         <span class="work-name">${escapeHtml(record.goods)}</span>
-        <span class="work-meta">${currency(record.price)}/打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}闪</span>
+        <span class="work-meta">${currency(record.price)}/打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}件</span>
       </div>
       <div class="work-actions">
         <span class="work-total">${currency(recordTotal(record))}</span>
@@ -356,7 +356,7 @@ function renderTrashList(records) {
     <li class="work-item">
       <div>
         <span class="work-name">${escapeHtml(record.goods)}</span>
-        <span class="work-meta">${formatShortDate(record.date)} · ${currency(record.price)}/打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}闪</span>
+        <span class="work-meta">${formatShortDate(record.date)} · ${currency(record.price)}/打 · ${formatQty(record.dozenQty)}打 + ${formatQty(record.looseQty)}件</span>
       </div>
       <div class="work-actions">
         <span class="work-total">${currency(recordTotal(record))}</span>
