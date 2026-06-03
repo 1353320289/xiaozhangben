@@ -14,6 +14,12 @@ if (missing.length) {
 }
 
 const today = chinaDateKey(new Date());
+
+if (!shouldSendNow(new Date())) {
+  console.log("Scheduled run is outside the China reminder window; no message sent.");
+  process.exit(0);
+}
+
 const hasRecord = await hasLedgerRecord(today);
 
 await sendWechatReminder(today, hasRecord);
@@ -182,6 +188,27 @@ function buildMissingMessage(date) {
 
 function pick(items) {
   return items[Math.floor(Math.random() * items.length)];
+}
+
+function shouldSendNow(date) {
+  if (process.env.GITHUB_EVENT_NAME === "workflow_dispatch") return true;
+
+  const minutes = chinaMinutesOfDay(date);
+  const start = (22 * 60) + 15;
+  const end = (23 * 60) + 30;
+  return minutes >= start && minutes <= end;
+}
+
+function chinaMinutesOfDay(date) {
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return (Number(values.hour) * 60) + Number(values.minute);
 }
 
 function chinaDateKey(date) {
