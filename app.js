@@ -491,7 +491,6 @@ async function enterAccount(user) {
   state.records = mergeRecords(cloudRecords, localRecords);
   state.records = keepCurrentMonthRecords(state.records);
   saveRecords();
-  await pruneOldCloudRecords();
   await syncRecords();
   state.syncStatus = "已同步";
   render();
@@ -590,13 +589,6 @@ async function deleteCloudRecord(id) {
   await supabaseClient.from(RECORDS_TABLE).delete().eq("id", id);
 }
 
-async function pruneOldCloudRecords() {
-  if (!supabaseClient || !state.user) return;
-  await supabaseClient
-    .from(RECORDS_TABLE)
-    .delete()
-    .not("date", "like", `${monthKey(new Date())}%`);
-}
 
 function recordToCloud(record) {
   return {
