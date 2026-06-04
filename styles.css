@@ -370,6 +370,7 @@ input {
   border-radius: 7px;
   background: white;
   color: var(--ink);
+  font-size: 16px;
   padding: 0 9px;
 }
 

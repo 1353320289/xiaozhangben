@@ -15,7 +15,8 @@ const state = {
   view: "auth",
   user: null,
   syncStatus: "未登录",
-  editingId: null
+  editingId: null,
+  autoPrice: null
 };
 
 const els = {
@@ -124,10 +125,17 @@ function bindEvents() {
     fillLatestGoods();
   });
 
+  els.goods.addEventListener("input", autoFillPriceFromGoods);
+
+  els.price.addEventListener("input", () => {
+    state.autoPrice = null;
+  });
+
   els.form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const goods = els.goods.value.trim();
-    const price = parseMoney(els.price.value);
+    const inferredPrice = inferPriceFromGoods(goods);
+    const price = parseMoney(els.price.value || (inferredPrice ? `${inferredPrice}` : ""));
     const dozenQty = parseMoney(els.dozen.value || "0");
     const looseQty = parseMoney(els.loose.value || "0");
 
@@ -508,6 +516,7 @@ function startEdit(record) {
 
 function resetEntryForm() {
   state.editingId = null;
+  state.autoPrice = null;
   els.form.reset();
   els.saveBtn.textContent = "保存";
 }
@@ -550,7 +559,33 @@ function fillLatestGoods() {
 function fillGoods(goods, price, focusQuantity = true) {
   els.goods.value = goods || "";
   els.price.value = price ? `${roundMoney(Number(price))}` : "";
+  state.autoPrice = price ? roundMoney(Number(price)) : null;
   if (focusQuantity) els.dozen.focus();
+}
+
+function autoFillPriceFromGoods() {
+  const inferredPrice = inferPriceFromGoods(els.goods.value);
+  const currentPrice = parseMoney(els.price.value);
+  const currentIsAuto = state.autoPrice !== null && Number.isFinite(currentPrice) && roundMoney(currentPrice) === state.autoPrice;
+
+  if (!inferredPrice) {
+    if (currentIsAuto) els.price.value = "";
+    state.autoPrice = null;
+    return;
+  }
+
+  if (els.price.value.trim() && !currentIsAuto) return;
+
+  state.autoPrice = roundMoney(inferredPrice);
+  els.price.value = `${state.autoPrice}`;
+}
+
+function inferPriceFromGoods(goods) {
+  const text = String(goods || "").trim();
+  const yuanMatch = text.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:元|块|rmb|RMB)/);
+  const symbolMatch = text.match(/[¥￥]\s*(\d+(?:[.,]\d{1,2})?)/);
+  const value = parseMoney(yuanMatch?.[1] || symbolMatch?.[1] || "");
+  return Number.isFinite(value) && value > 0 ? roundMoney(value) : null;
 }
 
 function recordTime(record) {
