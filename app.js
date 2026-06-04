@@ -535,8 +535,7 @@ function frequentGoods() {
     });
 
   return [...items.values()]
-    .sort((a, b) => b.count - a.count || b.latest.localeCompare(a.latest))
-    .slice(0, 6);
+    .sort((a, b) => b.count - a.count || b.latest.localeCompare(a.latest));
 }
 
 function latestGoods() {

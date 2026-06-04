@@ -317,8 +317,8 @@ form {
 
 .quick-goods {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
   padding: 7px 0 0;
 }
 
