@@ -456,7 +456,7 @@ input {
 
 .report-page {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 8px;
   min-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
   padding: 10px;
@@ -488,6 +488,7 @@ input {
 .report-image-wrap {
   min-height: 0;
   overflow: auto;
+  align-self: start;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f7f2e8;
