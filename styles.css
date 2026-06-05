@@ -595,17 +595,28 @@ input {
 }
 
 .report-pick-grid button {
+  appearance: none;
+  -webkit-appearance: none;
   position: relative;
   display: grid;
   place-items: center;
   min-height: 52px;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: white;
   color: var(--ink);
   font-size: 16px;
   font-weight: 800;
+  line-height: 1;
+  text-align: center;
   touch-action: none;
+}
+
+.report-pick-grid button span {
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 
 .report-pick-grid button.has-record::after {
