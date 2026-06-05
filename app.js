@@ -58,7 +58,7 @@ const els = {
   reportStatus: document.querySelector("#reportStatus"),
   reportPicker: document.querySelector("#reportPicker"),
   reportPickGrid: document.querySelector("#reportPickGrid"),
-  lastReportRange: document.querySelector("#lastReportRange"),
+  reportHistory: document.querySelector("#reportHistory"),
   currentReportRange: document.querySelector("#currentReportRange"),
   cancelReportPickBtn: document.querySelector("#cancelReportPickBtn"),
   clearReportPickBtn: document.querySelector("#clearReportPickBtn"),
@@ -747,10 +747,7 @@ function closeReportPicker() {
 }
 
 function renderReportPicker() {
-  const lastRange = loadLastReportRange()[reportRangeScope()];
-  els.lastReportRange.textContent = lastRange
-    ? `上次选择：${formatRangeText(lastRange)}`
-    : "上次没有选择记录。";
+  renderReportHistory();
   els.currentReportRange.textContent = state.draftReportRange
     ? `本次选择：${formatRangeText(normalizeRange(state.draftReportRange))}`
     : "不选择日期时默认生成全部记录。";
@@ -807,8 +804,37 @@ function renderReportStatus(records) {
 
 function saveLastReportRange(range) {
   const ranges = loadLastReportRange();
-  ranges[reportRangeScope()] = range || { all: true };
+  const scope = reportRangeScope();
+  const history = Array.isArray(ranges[scope]) ? ranges[scope] : ranges[scope] ? [{ range: ranges[scope], createdAt: "" }] : [];
+  history.unshift({
+    range: range || { all: true },
+    createdAt: new Date().toISOString()
+  });
+  ranges[scope] = history.slice(0, 8);
   localStorage.setItem(LAST_REPORT_RANGE_KEY, JSON.stringify(ranges));
+}
+
+function renderReportHistory() {
+  const history = reportRangeHistory();
+  if (!history.length) {
+    els.reportHistory.textContent = "上次没有选择记录。";
+    return;
+  }
+
+  els.reportHistory.innerHTML = history.map((item, index) => `
+    <div class="${index === 0 ? "is-latest" : ""}">
+      <span>${index === 0 ? "上次选择" : `第${index + 1}次`}</span>
+      <b>${escapeHtml(formatRangeText(item.range))}</b>
+      <small>${escapeHtml(formatHistoryTime(item.createdAt))}</small>
+    </div>
+  `).join("");
+}
+
+function reportRangeHistory() {
+  const value = loadLastReportRange()[reportRangeScope()];
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return [{ range: value, createdAt: "" }];
 }
 
 function loadLastReportRange() {
@@ -835,6 +861,13 @@ function formatRangeText(range) {
   return range.start === range.end
     ? formatShortDate(range.start)
     : `${formatShortDate(range.start)} 到 ${formatShortDate(range.end)}`;
+}
+
+function formatHistoryTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function recordsForDate(key) {

@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="记账本">
     <title>记账本</title>
-    <link rel="manifest" href="manifest.webmanifest?v=41">
+    <link rel="manifest" href="manifest.webmanifest?v=42">
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/icon.svg">
-    <link rel="stylesheet" href="styles.css?v=41">
+    <link rel="stylesheet" href="styles.css?v=42">
   </head>
   <body>
     <div class="app-shell">
@@ -126,7 +126,7 @@
             <h2>选择报告日期</h2>
             <button class="close-button" id="cancelReportPickBtn" type="button">取消</button>
           </div>
-          <p class="report-hint" id="lastReportRange">上次没有选择记录。</p>
+          <div class="report-history" id="reportHistory">上次没有选择记录。</div>
           <div class="report-pick-week">
             <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
           </div>
@@ -142,7 +142,7 @@
       <button class="install-button" id="installBtn" type="button" hidden>安装</button>
     </div>
 
-    <script src="vendor/supabase.min.js?v=41" defer></script>
-    <script src="app.js?v=41" defer></script>
+    <script src="vendor/supabase.min.js?v=42" defer></script>
+    <script src="app.js?v=42" defer></script>
   </body>
 </html>

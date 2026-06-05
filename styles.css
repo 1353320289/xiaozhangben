@@ -535,14 +535,47 @@ input {
   gap: 8px;
 }
 
-.report-hint {
+.report-hint,
+.report-history {
   color: var(--muted);
   font-size: 13px;
 }
 
-#lastReportRange {
+.report-history {
+  display: grid;
+  gap: 5px;
+}
+
+.report-history div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 7px;
+  border-radius: 7px;
+  background: #fffaf0;
+}
+
+.report-history div.is-latest {
+  background: #fff1f0;
+}
+
+.report-history b {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-history small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.report-history div.is-latest span,
+.report-history div.is-latest b {
   color: var(--danger);
-  font-size: 16px;
   font-weight: 800;
 }
 
