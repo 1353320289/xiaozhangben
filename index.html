@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="记账本">
     <title>记账本</title>
-    <link rel="manifest" href="manifest.webmanifest?v=37">
+    <link rel="manifest" href="manifest.webmanifest?v=38">
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/icon.svg">
-    <link rel="stylesheet" href="styles.css?v=37">
+    <link rel="stylesheet" href="styles.css?v=38">
   </head>
   <body>
     <div class="app-shell">
@@ -110,6 +110,10 @@
             <h1>本月报告</h1>
             <button class="close-button" id="closeReportBtn" type="button">返回</button>
           </div>
+          <div class="report-tools">
+            <p id="reportStatus">正在生成报告。</p>
+            <button class="sent-button" id="markReportSentBtn" type="button">发完后标记</button>
+          </div>
           <div class="report-image-wrap">
             <canvas id="reportCanvas" aria-label="报告图片"></canvas>
             <img id="reportImage" alt="报告图片">
@@ -120,7 +124,7 @@
       <button class="install-button" id="installBtn" type="button" hidden>安装</button>
     </div>
 
-    <script src="vendor/supabase.min.js?v=37" defer></script>
-    <script src="app.js?v=37" defer></script>
+    <script src="vendor/supabase.min.js?v=38" defer></script>
+    <script src="app.js?v=38" defer></script>
   </body>
 </html>

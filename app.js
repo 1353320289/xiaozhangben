@@ -1,6 +1,7 @@
 const STORAGE_KEY = "piecework-calendar-v1";
 const BACKUP_STORAGE_KEY = "piecework-calendar-backup-v1";
 const LEGACY_MIGRATION_KEY = "piecework-calendar-legacy-migrated";
+const REPORT_SENT_KEY = "piecework-calendar-report-sent-v1";
 const BUNDLE_SIZE = 12;
 const SUPABASE_URL = "https://xbelcicqzulbexljkttq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_oUSYtdT8CfWFh72JWyYSbg_Ds9eLduV";
@@ -51,6 +52,8 @@ const els = {
   reportBtn: document.querySelector("#reportBtn"),
   reportCanvas: document.querySelector("#reportCanvas"),
   reportImage: document.querySelector("#reportImage"),
+  reportStatus: document.querySelector("#reportStatus"),
+  markReportSentBtn: document.querySelector("#markReportSentBtn"),
   closeReportBtn: document.querySelector("#closeReportBtn"),
   trashBtn: document.querySelector("#trashBtn"),
   empty: document.querySelector("#emptyState"),
@@ -238,6 +241,10 @@ function bindEvents() {
     drawReport();
   });
 
+  els.markReportSentBtn.addEventListener("click", () => {
+    markCurrentReportSent();
+  });
+
   els.closeReportBtn.addEventListener("click", () => {
     state.view = "app";
     render();
@@ -375,7 +382,7 @@ function renderTrashList(records) {
   `).join("");
 }
 
-function buildReportCards(sourceRecords = recordsForMonth(state.activeMonth)) {
+function buildReportCards(sourceRecords = recordsForReport()) {
   const goodsGroups = new Map();
   sourceRecords
     .slice()
@@ -403,7 +410,7 @@ function buildReportCards(sourceRecords = recordsForMonth(state.activeMonth)) {
   }).sort((a, b) => a.firstDate.localeCompare(b.firstDate));
 }
 
-function drawReport(cards = buildReportCards()) {
+function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport()) {
   const canvas = els.reportCanvas;
   const ctx = canvas.getContext("2d");
   const width = 900;
@@ -413,7 +420,8 @@ function drawReport(cards = buildReportCards()) {
   const rowHeight = 42;
   const groupNameHeight = 42;
   const groupGap = 28;
-  const cardsToDraw = cards.length ? cards : [{ name: "暂无记录", rows: [{ day: "", qty: "本月还没有做货记录" }] }];
+  const emptyText = sourceRecords.length ? "本月还没有做货记录" : "没有新的报告记录";
+  const cardsToDraw = cards.length ? cards : [{ name: "暂无记录", rows: [{ day: "", qty: emptyText }] }];
   const fullWidth = width - paddingX * 2;
   const contentHeight = reportColumnHeight(cardsToDraw, rowHeight, groupNameHeight, groupGap);
   const height = paddingTop + titleHeight + contentHeight + 34;
@@ -431,6 +439,7 @@ function drawReport(cards = buildReportCards()) {
   drawReportColumn(ctx, cardsToDraw, paddingX, contentTop, fullWidth, rowHeight, groupNameHeight, groupGap);
 
   els.reportImage.src = canvas.toDataURL("image/png");
+  renderReportStatus(sourceRecords);
 }
 
 function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeight, groupGap) {
@@ -686,6 +695,58 @@ function selectFirstVisibleDay() {
 function recordsForMonth(monthDate) {
   const key = monthKey(monthDate);
   return state.records.filter((record) => !record.deletedAt && record.date.startsWith(key));
+}
+
+function recordsForReport() {
+  const lastSent = reportSentDate();
+  return recordsForMonth(state.activeMonth)
+    .filter((record) => !lastSent || record.date > lastSent)
+    .sort((a, b) => a.date.localeCompare(b.date) || recordTime(a).localeCompare(recordTime(b)));
+}
+
+function renderReportStatus(records) {
+  if (!records.length) {
+    const lastSent = reportSentDate();
+    els.reportStatus.textContent = lastSent ? `没有新的报告记录，上次已发送到 ${formatShortDate(lastSent)}。` : "还没有可以生成的记录。";
+    els.markReportSentBtn.disabled = true;
+    return;
+  }
+
+  const dates = records.map((record) => record.date).sort();
+  const start = dates[0];
+  const end = dates[dates.length - 1];
+  els.reportStatus.textContent = start === end
+    ? `本次只生成 ${formatShortDate(start)} 的新记录。`
+    : `本次生成 ${formatShortDate(start)} 到 ${formatShortDate(end)} 的新记录。`;
+  els.markReportSentBtn.disabled = false;
+}
+
+function markCurrentReportSent() {
+  const records = recordsForReport();
+  if (!records.length) return;
+
+  const lastDate = records.map((record) => record.date).sort().at(-1);
+  const sent = loadReportSent();
+  sent[reportSentScope()] = lastDate;
+  localStorage.setItem(REPORT_SENT_KEY, JSON.stringify(sent));
+  drawReport();
+}
+
+function reportSentDate() {
+  return loadReportSent()[reportSentScope()] || "";
+}
+
+function reportSentScope() {
+  const account = state.user?.id || "local";
+  return `${account}:${monthKey(state.activeMonth)}`;
+}
+
+function loadReportSent() {
+  try {
+    return JSON.parse(localStorage.getItem(REPORT_SENT_KEY) || "{}");
+  } catch {
+    return {};
+  }
 }
 
 function recordsForDate(key) {
