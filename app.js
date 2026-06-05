@@ -1,7 +1,7 @@
 const STORAGE_KEY = "piecework-calendar-v1";
 const BACKUP_STORAGE_KEY = "piecework-calendar-backup-v1";
 const LEGACY_MIGRATION_KEY = "piecework-calendar-legacy-migrated";
-const REPORT_SENT_KEY = "piecework-calendar-report-sent-v1";
+const LAST_REPORT_RANGE_KEY = "piecework-calendar-last-report-range-v1";
 const BUNDLE_SIZE = 12;
 const SUPABASE_URL = "https://xbelcicqzulbexljkttq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_oUSYtdT8CfWFh72JWyYSbg_Ds9eLduV";
@@ -17,7 +17,10 @@ const state = {
   user: null,
   syncStatus: "未登录",
   editingId: null,
-  autoPrice: null
+  autoPrice: null,
+  reportRange: null,
+  draftReportRange: null,
+  isPickingReportRange: false
 };
 
 const els = {
@@ -53,7 +56,13 @@ const els = {
   reportCanvas: document.querySelector("#reportCanvas"),
   reportImage: document.querySelector("#reportImage"),
   reportStatus: document.querySelector("#reportStatus"),
-  markReportSentBtn: document.querySelector("#markReportSentBtn"),
+  reportPicker: document.querySelector("#reportPicker"),
+  reportPickGrid: document.querySelector("#reportPickGrid"),
+  lastReportRange: document.querySelector("#lastReportRange"),
+  currentReportRange: document.querySelector("#currentReportRange"),
+  cancelReportPickBtn: document.querySelector("#cancelReportPickBtn"),
+  clearReportPickBtn: document.querySelector("#clearReportPickBtn"),
+  generateReportBtn: document.querySelector("#generateReportBtn"),
   closeReportBtn: document.querySelector("#closeReportBtn"),
   trashBtn: document.querySelector("#trashBtn"),
   empty: document.querySelector("#emptyState"),
@@ -236,13 +245,39 @@ function bindEvents() {
   });
 
   els.reportBtn.addEventListener("click", () => {
-    state.view = "report";
-    render();
-    drawReport();
+    openReportPicker();
   });
 
-  els.markReportSentBtn.addEventListener("click", () => {
-    markCurrentReportSent();
+  els.cancelReportPickBtn.addEventListener("click", closeReportPicker);
+
+  els.clearReportPickBtn.addEventListener("click", () => {
+    state.draftReportRange = null;
+    renderReportPicker();
+  });
+
+  els.generateReportBtn.addEventListener("click", () => {
+    generatePickedReport();
+  });
+
+  els.reportPickGrid.addEventListener("pointerdown", (event) => {
+    const button = event.target.closest("[data-report-date]");
+    if (!button) return;
+    state.isPickingReportRange = true;
+    state.draftReportRange = { start: button.dataset.reportDate, end: button.dataset.reportDate };
+    renderReportPicker();
+  });
+
+  els.reportPickGrid.addEventListener("pointermove", (event) => {
+    if (!state.isPickingReportRange || !state.draftReportRange) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    const button = target?.closest?.("[data-report-date]");
+    if (!button) return;
+    state.draftReportRange.end = button.dataset.reportDate;
+    renderReportPicker();
+  });
+
+  window.addEventListener("pointerup", () => {
+    state.isPickingReportRange = false;
   });
 
   els.closeReportBtn.addEventListener("click", () => {
@@ -382,7 +417,7 @@ function renderTrashList(records) {
   `).join("");
 }
 
-function buildReportCards(sourceRecords = recordsForReport()) {
+function buildReportCards(sourceRecords = recordsForReportRange()) {
   const goodsGroups = new Map();
   sourceRecords
     .slice()
@@ -410,7 +445,7 @@ function buildReportCards(sourceRecords = recordsForReport()) {
   }).sort((a, b) => a.firstDate.localeCompare(b.firstDate));
 }
 
-function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport()) {
+function drawReport(cards = buildReportCards(), sourceRecords = recordsForReportRange()) {
   const canvas = els.reportCanvas;
   const ctx = canvas.getContext("2d");
   const width = 900;
@@ -420,7 +455,7 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
   const rowHeight = 42;
   const groupNameHeight = 42;
   const groupGap = 28;
-  const emptyText = sourceRecords.length ? "本月还没有做货记录" : "没有新的报告记录";
+  const emptyText = "没有可以生成的记录";
   const cardsToDraw = cards.length ? cards : [{ name: "暂无记录", rows: [{ day: "", qty: emptyText }] }];
   const fullWidth = width - paddingX * 2;
   const contentHeight = reportColumnHeight(cardsToDraw, rowHeight, groupNameHeight, groupGap);
@@ -697,56 +732,106 @@ function recordsForMonth(monthDate) {
   return state.records.filter((record) => !record.deletedAt && record.date.startsWith(key));
 }
 
-function recordsForReport() {
-  const lastSent = reportSentDate();
+function openReportPicker() {
+  state.draftReportRange = null;
+  els.reportPicker.hidden = false;
+  renderReportPicker();
+}
+
+function closeReportPicker() {
+  state.isPickingReportRange = false;
+  els.reportPicker.hidden = true;
+}
+
+function renderReportPicker() {
+  const lastRange = loadLastReportRange()[reportRangeScope()];
+  els.lastReportRange.textContent = lastRange
+    ? `上次选择：${formatRangeText(lastRange)}`
+    : "上次没有选择记录。";
+  els.currentReportRange.textContent = state.draftReportRange
+    ? `本次选择：${formatRangeText(normalizeRange(state.draftReportRange))}`
+    : "不选择日期时默认生成全部记录。";
+
+  const monthRecords = recordsForMonth(state.activeMonth);
+  const recordDates = new Set(monthRecords.map((record) => record.date));
+  const range = state.draftReportRange ? normalizeRange(state.draftReportRange) : null;
+  const days = daysInMonth(state.activeMonth);
+  const blanks = (new Date(state.activeMonth.getFullYear(), state.activeMonth.getMonth(), 1).getDay() + 6) % 7;
+  const cells = Array.from({ length: blanks }, () => "<span></span>");
+
+  for (let day = 1; day <= days; day += 1) {
+    const key = dateKey(new Date(state.activeMonth.getFullYear(), state.activeMonth.getMonth(), day));
+    const selected = range && key >= range.start && key <= range.end;
+    const hasRecord = recordDates.has(key);
+    cells.push(`
+      <button class="${selected ? "is-selected" : ""} ${hasRecord ? "has-record" : ""}" type="button" data-report-date="${key}">
+        <span>${day}</span>
+      </button>
+    `);
+  }
+
+  els.reportPickGrid.innerHTML = cells.join("");
+}
+
+function generatePickedReport() {
+  state.reportRange = state.draftReportRange ? normalizeRange(state.draftReportRange) : null;
+  saveLastReportRange(state.reportRange);
+  closeReportPicker();
+  state.view = "report";
+  render();
+  drawReport();
+}
+
+function recordsForReportRange() {
+  const range = state.reportRange;
   return recordsForMonth(state.activeMonth)
-    .filter((record) => !lastSent || record.date > lastSent)
+    .filter((record) => !range || (record.date >= range.start && record.date <= range.end))
     .sort((a, b) => a.date.localeCompare(b.date) || recordTime(a).localeCompare(recordTime(b)));
 }
 
 function renderReportStatus(records) {
   if (!records.length) {
-    const lastSent = reportSentDate();
-    els.reportStatus.textContent = lastSent ? `没有新的报告记录，上次已发送到 ${formatShortDate(lastSent)}。` : "还没有可以生成的记录。";
-    els.markReportSentBtn.disabled = true;
+    els.reportStatus.textContent = state.reportRange
+      ? `${formatRangeText(state.reportRange)} 没有记录。`
+      : "本月还没有可以生成的记录。";
     return;
   }
 
-  const dates = records.map((record) => record.date).sort();
-  const start = dates[0];
-  const end = dates[dates.length - 1];
-  els.reportStatus.textContent = start === end
-    ? `本次只生成 ${formatShortDate(start)} 的新记录。`
-    : `本次生成 ${formatShortDate(start)} 到 ${formatShortDate(end)} 的新记录。`;
-  els.markReportSentBtn.disabled = false;
+  els.reportStatus.textContent = state.reportRange
+    ? `本次报告：${formatRangeText(state.reportRange)}`
+    : "本次报告：本月全部记录。";
 }
 
-function markCurrentReportSent() {
-  const records = recordsForReport();
-  if (!records.length) return;
-
-  const lastDate = records.map((record) => record.date).sort().at(-1);
-  const sent = loadReportSent();
-  sent[reportSentScope()] = lastDate;
-  localStorage.setItem(REPORT_SENT_KEY, JSON.stringify(sent));
-  drawReport();
+function saveLastReportRange(range) {
+  const ranges = loadLastReportRange();
+  ranges[reportRangeScope()] = range || { all: true };
+  localStorage.setItem(LAST_REPORT_RANGE_KEY, JSON.stringify(ranges));
 }
 
-function reportSentDate() {
-  return loadReportSent()[reportSentScope()] || "";
+function loadLastReportRange() {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_REPORT_RANGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
 }
 
-function reportSentScope() {
+function reportRangeScope() {
   const account = state.user?.id || "local";
   return `${account}:${monthKey(state.activeMonth)}`;
 }
 
-function loadReportSent() {
-  try {
-    return JSON.parse(localStorage.getItem(REPORT_SENT_KEY) || "{}");
-  } catch {
-    return {};
-  }
+function normalizeRange(range) {
+  if (!range) return null;
+  return range.start <= range.end ? range : { start: range.end, end: range.start };
+}
+
+function formatRangeText(range) {
+  if (range?.all) return "本月全部记录";
+  if (!range) return "本月全部记录";
+  return range.start === range.end
+    ? formatShortDate(range.start)
+    : `${formatShortDate(range.start)} 到 ${formatShortDate(range.end)}`;
 }
 
 function recordsForDate(key) {
@@ -829,6 +914,10 @@ function monthKey(date) {
 function parseDateKey(key) {
   const [year, month, day] = key.split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function daysInMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 }
 
 function formatMonth(date) {

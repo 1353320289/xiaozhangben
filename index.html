@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="记账本">
     <title>记账本</title>
-    <link rel="manifest" href="manifest.webmanifest?v=38">
+    <link rel="manifest" href="manifest.webmanifest?v=39">
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/icon.svg">
-    <link rel="stylesheet" href="styles.css?v=38">
+    <link rel="stylesheet" href="styles.css?v=39">
   </head>
   <body>
     <div class="app-shell">
@@ -112,7 +112,6 @@
           </div>
           <div class="report-tools">
             <p id="reportStatus">正在生成报告。</p>
-            <button class="sent-button" id="markReportSentBtn" type="button">发完后标记</button>
           </div>
           <div class="report-image-wrap">
             <canvas id="reportCanvas" aria-label="报告图片"></canvas>
@@ -121,10 +120,29 @@
         </section>
       </main>
 
+      <div class="report-picker" id="reportPicker" hidden>
+        <div class="report-picker-card" role="dialog" aria-modal="true" aria-label="选择报告日期">
+          <div class="report-picker-head">
+            <h2>选择报告日期</h2>
+            <button class="close-button" id="cancelReportPickBtn" type="button">取消</button>
+          </div>
+          <p class="report-hint" id="lastReportRange">上次没有选择记录。</p>
+          <div class="report-pick-week">
+            <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+          </div>
+          <div class="report-pick-grid" id="reportPickGrid"></div>
+          <p class="report-hint" id="currentReportRange">不选择日期时默认生成全部记录。</p>
+          <div class="report-picker-actions">
+            <button class="close-button" id="clearReportPickBtn" type="button">全部记录</button>
+            <button class="primary-button" id="generateReportBtn" type="button">生成报告</button>
+          </div>
+        </div>
+      </div>
+
       <button class="install-button" id="installBtn" type="button" hidden>安装</button>
     </div>
 
-    <script src="vendor/supabase.min.js?v=38" defer></script>
-    <script src="app.js?v=38" defer></script>
+    <script src="vendor/supabase.min.js?v=39" defer></script>
+    <script src="app.js?v=39" defer></script>
   </body>
 </html>
