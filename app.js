@@ -475,6 +475,9 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
 
   els.reportImage.src = canvas.toDataURL("image/png");
   renderReportStatus(sourceRecords);
+  els.reportImage.closest(".report-image-wrap")?.scrollTo({ top: 0, left: 0 });
+  els.reportView.scrollTo?.({ top: 0, left: 0 });
+  window.scrollTo?.({ top: 0, left: 0 });
 }
 
 function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeight, groupGap) {
