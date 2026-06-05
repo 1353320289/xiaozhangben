@@ -621,8 +621,8 @@ input {
 }
 
 .report-pick-grid button.is-last-range {
-  border-color: #b7dbc1;
-  background: #eef9f1;
+  border-color: #f2b8b5;
+  background: #fff1f0;
 }
 
 .report-pick-grid button.is-selected {
