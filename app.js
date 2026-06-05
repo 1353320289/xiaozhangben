@@ -780,7 +780,7 @@ function renderReportPicker() {
 function generatePickedReport() {
   state.reportRange = state.draftReportRange ? normalizeRange(state.draftReportRange) : null;
   const historyItem = saveLastReportRange(state.reportRange);
-  syncReportRangeHistory(historyItem);
+  syncReportRangeHistory(historyItem).then(() => mergeCloudReportRanges());
   closeReportPicker();
   state.view = "report";
   render();
@@ -810,7 +810,7 @@ function renderReportStatus(records) {
 function saveLastReportRange(range) {
   const ranges = loadLastReportRange();
   const scope = reportRangeScope();
-  const history = Array.isArray(ranges[scope]) ? ranges[scope] : ranges[scope] ? [{ range: ranges[scope], createdAt: "" }] : [];
+  const history = Array.isArray(ranges[scope]) ? ranges[scope].map(normalizeReportRangeItem) : ranges[scope] ? [normalizeReportRangeItem({ range: ranges[scope] })] : [];
   const item = {
     id: crypto.randomUUID(),
     range: range || { all: true },
@@ -875,16 +875,26 @@ async function mergeCloudReportRanges() {
 
   const ranges = loadLastReportRange();
   const scope = reportRangeScope();
-  const localHistory = Array.isArray(ranges[scope]) ? ranges[scope] : ranges[scope] ? [{ range: ranges[scope], createdAt: "" }] : [];
+  const localHistory = Array.isArray(ranges[scope]) ? ranges[scope].map(normalizeReportRangeItem) : ranges[scope] ? [normalizeReportRangeItem({ range: ranges[scope] })] : [];
   const cloudHistory = (data || []).map(reportRangeFromCloud);
   ranges[scope] = mergeReportRangeHistory(cloudHistory, localHistory);
   localStorage.setItem(LAST_REPORT_RANGE_KEY, JSON.stringify(ranges));
+  await syncReportRangeItems(ranges[scope]);
 }
 
 async function syncReportRangeHistory(item) {
   if (!supabaseClient || !state.user || !item) return;
+  await syncReportRangeItems([item]);
+}
 
-  const { error } = await supabaseClient.from(REPORT_RANGES_TABLE).insert(reportRangeToCloud(item));
+async function syncReportRangeItems(items) {
+  if (!supabaseClient || !state.user || !items?.length) return;
+
+  const payload = items.map(reportRangeToCloud);
+  const { error } = await supabaseClient.from(REPORT_RANGES_TABLE).upsert(payload, {
+    onConflict: "id",
+    ignoreDuplicates: true
+  });
   if (error) return;
 
   const { data } = await supabaseClient
@@ -922,12 +932,20 @@ function reportRangeFromCloud(record) {
 function mergeReportRangeHistory(primary, secondary) {
   const items = new Map();
   [...secondary, ...primary].forEach((item) => {
-    const key = item.id || `${formatRangeText(item.range)}:${item.createdAt}`;
-    items.set(key, item);
+    const normalized = normalizeReportRangeItem(item);
+    items.set(normalized.id, normalized);
   });
   return [...items.values()]
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
     .slice(0, 2);
+}
+
+function normalizeReportRangeItem(item) {
+  return {
+    id: item?.id || crypto.randomUUID(),
+    range: item?.range || { all: true },
+    createdAt: item?.createdAt || new Date().toISOString()
+  };
 }
 
 function normalizeRange(range) {
