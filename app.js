@@ -757,6 +757,7 @@ function renderReportPicker() {
   const monthRecords = recordsForMonth(state.activeMonth);
   const recordDates = new Set(monthRecords.map((record) => record.date));
   const range = state.draftReportRange ? normalizeRange(state.draftReportRange) : null;
+  const lastRange = latestReportRange();
   const days = daysInMonth(state.activeMonth);
   const blanks = (new Date(state.activeMonth.getFullYear(), state.activeMonth.getMonth(), 1).getDay() + 6) % 7;
   const cells = Array.from({ length: blanks }, () => "<span></span>");
@@ -764,9 +765,10 @@ function renderReportPicker() {
   for (let day = 1; day <= days; day += 1) {
     const key = dateKey(new Date(state.activeMonth.getFullYear(), state.activeMonth.getMonth(), day));
     const selected = range && key >= range.start && key <= range.end;
+    const inLastRange = lastRange && key >= lastRange.start && key <= lastRange.end;
     const hasRecord = recordDates.has(key);
     cells.push(`
-      <button class="${selected ? "is-selected" : ""} ${hasRecord ? "has-record" : ""}" type="button" data-report-date="${key}">
+      <button class="${selected ? "is-selected" : ""} ${inLastRange ? "is-last-range" : ""} ${hasRecord ? "has-record" : ""}" type="button" data-report-date="${key}">
         <span>${day}</span>
       </button>
     `);
@@ -841,6 +843,11 @@ function reportRangeHistory() {
   if (!value) return [];
   if (Array.isArray(value)) return value.slice(0, 2);
   return [{ range: value, createdAt: "" }];
+}
+
+function latestReportRange() {
+  const latest = reportRangeHistory()[0]?.range;
+  return latest && !latest.all ? normalizeRange(latest) : null;
 }
 
 function loadLastReportRange() {

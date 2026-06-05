@@ -596,6 +596,8 @@ input {
 
 .report-pick-grid button {
   position: relative;
+  display: grid;
+  place-items: center;
   min-height: 52px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -616,6 +618,11 @@ input {
   border-radius: 999px;
   background: var(--green);
   transform: translateX(-50%);
+}
+
+.report-pick-grid button.is-last-range {
+  border-color: #b7dbc1;
+  background: #eef9f1;
 }
 
 .report-pick-grid button.is-selected {
