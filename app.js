@@ -6,6 +6,7 @@ const BUNDLE_SIZE = 12;
 const SUPABASE_URL = "https://xbelcicqzulbexljkttq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_oUSYtdT8CfWFh72JWyYSbg_Ds9eLduV";
 const RECORDS_TABLE = "ledger_records";
+const REPORT_RANGES_TABLE = "report_ranges";
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const state = {
@@ -546,6 +547,7 @@ async function enterAccount(user) {
   state.records = mergeRecords(cloudRecords, localRecords);
   state.records = keepCurrentMonthRecords(state.records);
   saveRecords();
+  await mergeCloudReportRanges();
   await syncRecords();
   state.syncStatus = "已同步";
   render();
@@ -775,7 +777,8 @@ function renderReportPicker() {
 
 function generatePickedReport() {
   state.reportRange = state.draftReportRange ? normalizeRange(state.draftReportRange) : null;
-  saveLastReportRange(state.reportRange);
+  const historyItem = saveLastReportRange(state.reportRange);
+  syncReportRangeHistory(historyItem);
   closeReportPicker();
   state.view = "report";
   render();
@@ -806,12 +809,15 @@ function saveLastReportRange(range) {
   const ranges = loadLastReportRange();
   const scope = reportRangeScope();
   const history = Array.isArray(ranges[scope]) ? ranges[scope] : ranges[scope] ? [{ range: ranges[scope], createdAt: "" }] : [];
-  history.unshift({
+  const item = {
+    id: crypto.randomUUID(),
     range: range || { all: true },
     createdAt: new Date().toISOString()
-  });
-  ranges[scope] = history.slice(0, 8);
+  };
+  history.unshift(item);
+  ranges[scope] = history.slice(0, 2);
   localStorage.setItem(LAST_REPORT_RANGE_KEY, JSON.stringify(ranges));
+  return item;
 }
 
 function renderReportHistory() {
@@ -833,7 +839,7 @@ function renderReportHistory() {
 function reportRangeHistory() {
   const value = loadLastReportRange()[reportRangeScope()];
   if (!value) return [];
-  if (Array.isArray(value)) return value;
+  if (Array.isArray(value)) return value.slice(0, 2);
   return [{ range: value, createdAt: "" }];
 }
 
@@ -848,6 +854,73 @@ function loadLastReportRange() {
 function reportRangeScope() {
   const account = state.user?.id || "local";
   return `${account}:${monthKey(state.activeMonth)}`;
+}
+
+async function mergeCloudReportRanges() {
+  if (!supabaseClient || !state.user) return;
+  const { data, error } = await supabaseClient
+    .from(REPORT_RANGES_TABLE)
+    .select("*")
+    .eq("month", monthKey(state.activeMonth))
+    .order("created_at", { ascending: false })
+    .limit(2);
+  if (error) return;
+
+  const ranges = loadLastReportRange();
+  const scope = reportRangeScope();
+  const localHistory = Array.isArray(ranges[scope]) ? ranges[scope] : ranges[scope] ? [{ range: ranges[scope], createdAt: "" }] : [];
+  const cloudHistory = (data || []).map(reportRangeFromCloud);
+  ranges[scope] = mergeReportRangeHistory(cloudHistory, localHistory);
+  localStorage.setItem(LAST_REPORT_RANGE_KEY, JSON.stringify(ranges));
+}
+
+async function syncReportRangeHistory(item) {
+  if (!supabaseClient || !state.user || !item) return;
+
+  const { error } = await supabaseClient.from(REPORT_RANGES_TABLE).insert(reportRangeToCloud(item));
+  if (error) return;
+
+  const { data } = await supabaseClient
+    .from(REPORT_RANGES_TABLE)
+    .select("id")
+    .eq("month", monthKey(state.activeMonth))
+    .order("created_at", { ascending: false });
+  const oldIds = (data || []).slice(2).map((record) => record.id);
+  if (oldIds.length) {
+    await supabaseClient.from(REPORT_RANGES_TABLE).delete().in("id", oldIds);
+  }
+}
+
+function reportRangeToCloud(item) {
+  const range = item.range || { all: true };
+  return {
+    id: item.id,
+    user_id: state.user.id,
+    month: monthKey(state.activeMonth),
+    start_date: range.all ? null : range.start,
+    end_date: range.all ? null : range.end,
+    all_records: Boolean(range.all),
+    created_at: item.createdAt
+  };
+}
+
+function reportRangeFromCloud(record) {
+  return {
+    id: record.id,
+    range: record.all_records ? { all: true } : { start: record.start_date, end: record.end_date },
+    createdAt: record.created_at || ""
+  };
+}
+
+function mergeReportRangeHistory(primary, secondary) {
+  const items = new Map();
+  [...secondary, ...primary].forEach((item) => {
+    const key = item.id || `${formatRangeText(item.range)}:${item.createdAt}`;
+    items.set(key, item);
+  });
+  return [...items.values()]
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 2);
 }
 
 function normalizeRange(range) {
