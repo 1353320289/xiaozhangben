@@ -579,6 +579,30 @@ input {
   font-weight: 800;
 }
 
+.report-title-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.report-title-option input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--green);
+}
+
+.report-title-option span {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+}
+
 .report-pick-week,
 .report-pick-grid {
   display: grid;

@@ -61,6 +61,7 @@ const els = {
   reportPickGrid: document.querySelector("#reportPickGrid"),
   reportHistory: document.querySelector("#reportHistory"),
   currentReportRange: document.querySelector("#currentReportRange"),
+  reportTitleToggle: document.querySelector("#reportTitleToggle"),
   cancelReportPickBtn: document.querySelector("#cancelReportPickBtn"),
   clearReportPickBtn: document.querySelector("#clearReportPickBtn"),
   generateReportBtn: document.querySelector("#generateReportBtn"),
@@ -451,8 +452,9 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
   const ctx = canvas.getContext("2d");
   const width = 900;
   const paddingX = 58;
-  const paddingTop = 46;
-  const titleHeight = 66;
+  const showTitle = els.reportTitleToggle.checked;
+  const paddingTop = showTitle ? 46 : 30;
+  const titleHeight = showTitle ? 66 : 0;
   const rowHeight = 42;
   const groupNameHeight = 42;
   const groupGap = 28;
@@ -467,9 +469,11 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
   ctx.fillStyle = "#fffefd";
   ctx.fillRect(0, 0, width, height);
 
-  ctx.fillStyle = "#3f4246";
-  ctx.font = "800 48px system-ui, sans-serif";
-  ctx.fillText(`${state.activeMonth.getMonth() + 1}月计数`, paddingX, paddingTop + 46);
+  if (showTitle) {
+    ctx.fillStyle = "#3f4246";
+    ctx.font = "800 48px system-ui, sans-serif";
+    ctx.fillText(`${state.activeMonth.getMonth() + 1}月计数`, paddingX, paddingTop + 46);
+  }
 
   const contentTop = paddingTop + titleHeight;
   drawReportColumn(ctx, cardsToDraw, paddingX, contentTop, fullWidth, rowHeight, groupNameHeight, groupGap);
