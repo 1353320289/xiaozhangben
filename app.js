@@ -493,7 +493,7 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
 function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeight, groupGap) {
   let y = startY;
   cards.forEach((card) => {
-    const summaryWidth = 190;
+    const summaryWidth = 230;
     const dividerX = x + width - summaryWidth - 18;
     const detailWidth = dividerX - x - 18;
 
@@ -511,7 +511,7 @@ function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeig
 
     ctx.fillStyle = "#8a5a53";
     ctx.font = "500 24px system-ui, sans-serif";
-    ctx.fillText("合计", dividerX + 18, y + 30);
+    ctx.fillText(fitText(ctx, card.name, summaryWidth - 18), dividerX + 18, y + 30);
     ctx.fillStyle = "#4b4d52";
     ctx.font = "700 30px system-ui, sans-serif";
     ctx.fillText(fitText(ctx, card.total || "", summaryWidth - 18), dividerX + 18, y + 68);
