@@ -435,9 +435,14 @@ function buildReportCards(sourceRecords = recordsForReportRange()) {
 
   return [...goodsGroups.entries()].map(([name, dates]) => {
     const sortedDates = [...dates.entries()].sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+    const total = sortedDates.reduce((sum, [, qty]) => ({
+      dozenQty: roundMoney(sum.dozenQty + (qty.dozenQty || 0)),
+      looseQty: roundMoney(sum.looseQty + (qty.looseQty || 0))
+    }), { dozenQty: 0, looseQty: 0 });
     return {
       name,
       firstDate: sortedDates[0]?.[0] || "",
+      total: formatReportTotalQty(total),
       rows: sortedDates
         .map(([date, qty]) => ({
         day: formatDayOnly(date),
@@ -450,7 +455,7 @@ function buildReportCards(sourceRecords = recordsForReportRange()) {
 function drawReport(cards = buildReportCards(), sourceRecords = recordsForReportRange()) {
   const canvas = els.reportCanvas;
   const ctx = canvas.getContext("2d");
-  const width = 900;
+  const width = 980;
   const paddingX = 58;
   const showTitle = els.reportTitleToggle.checked;
   const paddingTop = showTitle ? 46 : 30;
@@ -488,17 +493,35 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
 function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeight, groupGap) {
   let y = startY;
   cards.forEach((card) => {
+    const summaryWidth = 190;
+    const dividerX = x + width - summaryWidth - 18;
+    const detailWidth = dividerX - x - 18;
+
     ctx.fillStyle = "#4b4d52";
     ctx.textAlign = "left";
     ctx.font = "500 32px system-ui, sans-serif";
-    ctx.fillText(fitText(ctx, card.name, width), x, y + 32);
+    ctx.fillText(fitText(ctx, card.name, detailWidth), x, y + 32);
+
+    ctx.strokeStyle = "#ded6c7";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(dividerX, y + 6);
+    ctx.lineTo(dividerX, y + groupNameHeight + Math.max(card.rows.length, 1) * rowHeight - 8);
+    ctx.stroke();
+
+    ctx.fillStyle = "#8a5a53";
+    ctx.font = "500 24px system-ui, sans-serif";
+    ctx.fillText("合计", dividerX + 18, y + 30);
+    ctx.fillStyle = "#4b4d52";
+    ctx.font = "700 30px system-ui, sans-serif";
+    ctx.fillText(fitText(ctx, card.total || "", summaryWidth - 18), dividerX + 18, y + 68);
 
     card.rows.forEach((row, index) => {
       const rowY = y + groupNameHeight + index * rowHeight;
       ctx.fillStyle = "#4b4d52";
       ctx.font = "500 32px system-ui, sans-serif";
       ctx.fillText(row.day, x, rowY + 31);
-      ctx.fillText(fitText(ctx, row.qty, width - 92), x + 92, rowY + 31);
+      ctx.fillText(fitText(ctx, row.qty, detailWidth - 92), x + 92, rowY + 31);
     });
 
     y += groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
@@ -1097,6 +1120,16 @@ function formatReportQty(record) {
   if (record.dozenQty > 0) parts.push(`${formatQty(record.dozenQty)}打`);
   if (record.looseQty > 0) parts.push(`${formatQty(record.looseQty)}件`);
   return parts.join(" ");
+}
+
+function formatReportTotalQty(record) {
+  const totalPieces = roundMoney(((record.dozenQty || 0) * BUNDLE_SIZE) + (record.looseQty || 0));
+  const dozenQty = Math.floor(totalPieces / BUNDLE_SIZE);
+  const looseQty = roundMoney(totalPieces - dozenQty * BUNDLE_SIZE);
+  const parts = [];
+  if (dozenQty > 0) parts.push(`${formatQty(dozenQty)}打`);
+  if (looseQty > 0) parts.push(`${formatQty(looseQty)}件`);
+  return parts.join(" ") || "0件";
 }
 
 function fitText(ctx, text, maxWidth) {
