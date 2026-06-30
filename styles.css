@@ -472,6 +472,11 @@ input {
   gap: 8px;
 }
 
+.report-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .report-tools {
   display: block;
   color: var(--muted);
@@ -483,6 +488,14 @@ input {
   padding: 0 10px;
   background: #eee7dc;
   color: var(--ink);
+}
+
+.copy-button {
+  min-height: 32px;
+  padding: 0 10px;
+  background: var(--green);
+  color: white;
+  font-weight: 700;
 }
 
 .report-image-wrap {

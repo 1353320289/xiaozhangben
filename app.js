@@ -57,6 +57,7 @@ const els = {
   reportCanvas: document.querySelector("#reportCanvas"),
   reportImage: document.querySelector("#reportImage"),
   reportStatus: document.querySelector("#reportStatus"),
+  copyReportBtn: document.querySelector("#copyReportBtn"),
   reportPicker: document.querySelector("#reportPicker"),
   reportPickGrid: document.querySelector("#reportPickGrid"),
   reportHistory: document.querySelector("#reportHistory"),
@@ -260,6 +261,10 @@ function bindEvents() {
 
   els.generateReportBtn.addEventListener("click", () => {
     generatePickedReport();
+  });
+
+  els.copyReportBtn.addEventListener("click", () => {
+    copyReportImage();
   });
 
   els.reportPickGrid.addEventListener("pointerdown", (event) => {
@@ -515,9 +520,9 @@ function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeig
       ctx.fillStyle = "#b42318";
       ctx.font = "700 28px system-ui, sans-serif";
       ctx.fillText(fitText(ctx, card.name, summaryWidth - 18), dividerX + 18, y + 32);
-      ctx.fillStyle = "#7a271a";
+      ctx.fillStyle = "#222222";
       ctx.font = "800 36px system-ui, sans-serif";
-      ctx.fillText(fitText(ctx, card.total || "", summaryWidth - 18), dividerX + 18, y + 74);
+      ctx.fillText(fitText(ctx, `合计：${card.total || ""}`, summaryWidth - 18), dividerX + 18, y + 74);
     }
 
     card.rows.forEach((row, index) => {
@@ -530,6 +535,57 @@ function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeig
 
     y += groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
   });
+}
+
+async function copyReportImage() {
+  const blob = await canvasToBlob(els.reportCanvas);
+  if (!blob) {
+    renderReportStatus(recordsForReportRange(), "复制失败，请重新生成报告。");
+    return;
+  }
+
+  try {
+    if (navigator.clipboard?.write && window.ClipboardItem) {
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob })
+      ]);
+      renderReportStatus(recordsForReportRange(), "报告图片已复制。");
+      return;
+    }
+  } catch {
+    // Some mobile browsers expose ClipboardItem but block image writes.
+  }
+
+  const file = new File([blob], "记账本报告.png", { type: "image/png" });
+  try {
+    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+      await navigator.share({ files: [file], title: "记账本报告" });
+      renderReportStatus(recordsForReportRange(), "已打开分享面板。");
+      return;
+    }
+  } catch {
+    // User cancellation is harmless; fall through to download/open fallback.
+  }
+
+  downloadReportBlob(blob);
+  renderReportStatus(recordsForReportRange(), "当前浏览器不支持直接复制，已改为保存图片。");
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/png");
+  });
+}
+
+function downloadReportBlob(blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "记账本报告.png";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function reportColumnHeight(cards, rowHeight, groupNameHeight, groupGap) {
@@ -825,17 +881,18 @@ function recordsForReportRange() {
     .sort((a, b) => a.date.localeCompare(b.date) || recordTime(a).localeCompare(recordTime(b)));
 }
 
-function renderReportStatus(records) {
+function renderReportStatus(records, extraMessage = "") {
+  const suffix = extraMessage ? ` ${extraMessage}` : "";
   if (!records.length) {
     els.reportStatus.textContent = state.reportRange
-      ? `${formatRangeText(state.reportRange)} 没有记录。`
-      : "本月还没有可以生成的记录。";
+      ? `${formatRangeText(state.reportRange)} 没有记录。${suffix}`
+      : `本月还没有可以生成的记录。${suffix}`;
     return;
   }
 
   els.reportStatus.textContent = state.reportRange
-    ? `本次报告：${formatRangeText(state.reportRange)}`
-    : "本次报告：本月全部记录。";
+    ? `本次报告：${formatRangeText(state.reportRange)}${suffix}`
+    : `本次报告：本月全部记录。${suffix}`;
 }
 
 function saveLastReportRange(range) {
