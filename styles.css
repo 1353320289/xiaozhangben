@@ -473,10 +473,10 @@ input {
 }
 
 .report-tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -489,8 +489,8 @@ input {
 }
 
 .copy-button {
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 9px;
   background: var(--green);
   color: white;
   font-weight: 700;
