@@ -62,6 +62,7 @@ const els = {
   reportHistory: document.querySelector("#reportHistory"),
   currentReportRange: document.querySelector("#currentReportRange"),
   reportTitleToggle: document.querySelector("#reportTitleToggle"),
+  reportTotalToggle: document.querySelector("#reportTotalToggle"),
   cancelReportPickBtn: document.querySelector("#cancelReportPickBtn"),
   clearReportPickBtn: document.querySelector("#clearReportPickBtn"),
   generateReportBtn: document.querySelector("#generateReportBtn"),
@@ -492,29 +493,32 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
 
 function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeight, groupGap) {
   let y = startY;
+  const showTotals = els.reportTotalToggle.checked;
   cards.forEach((card) => {
-    const summaryWidth = 230;
+    const summaryWidth = showTotals ? 250 : 0;
     const dividerX = x + width - summaryWidth - 18;
-    const detailWidth = dividerX - x - 18;
+    const detailWidth = showTotals ? dividerX - x - 18 : width;
 
     ctx.fillStyle = "#4b4d52";
     ctx.textAlign = "left";
     ctx.font = "500 32px system-ui, sans-serif";
     ctx.fillText(fitText(ctx, card.name, detailWidth), x, y + 32);
 
-    ctx.strokeStyle = "#ded6c7";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(dividerX, y + 6);
-    ctx.lineTo(dividerX, y + groupNameHeight + Math.max(card.rows.length, 1) * rowHeight - 8);
-    ctx.stroke();
+    if (showTotals) {
+      ctx.strokeStyle = "#ded6c7";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(dividerX, y + 6);
+      ctx.lineTo(dividerX, y + groupNameHeight + Math.max(card.rows.length, 1) * rowHeight - 8);
+      ctx.stroke();
 
-    ctx.fillStyle = "#8a5a53";
-    ctx.font = "500 24px system-ui, sans-serif";
-    ctx.fillText(fitText(ctx, card.name, summaryWidth - 18), dividerX + 18, y + 30);
-    ctx.fillStyle = "#4b4d52";
-    ctx.font = "700 30px system-ui, sans-serif";
-    ctx.fillText(fitText(ctx, card.total || "", summaryWidth - 18), dividerX + 18, y + 68);
+      ctx.fillStyle = "#b42318";
+      ctx.font = "700 28px system-ui, sans-serif";
+      ctx.fillText(fitText(ctx, card.name, summaryWidth - 18), dividerX + 18, y + 32);
+      ctx.fillStyle = "#7a271a";
+      ctx.font = "800 36px system-ui, sans-serif";
+      ctx.fillText(fitText(ctx, card.total || "", summaryWidth - 18), dividerX + 18, y + 74);
+    }
 
     card.rows.forEach((row, index) => {
       const rowY = y + groupNameHeight + index * rowHeight;
