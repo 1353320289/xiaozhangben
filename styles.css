@@ -472,13 +472,11 @@ input {
   gap: 8px;
 }
 
-.report-head-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .report-tools {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
   color: var(--muted);
   font-size: 13px;
 }

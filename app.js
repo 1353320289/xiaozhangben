@@ -521,8 +521,8 @@ function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeig
       ctx.font = "700 28px system-ui, sans-serif";
       ctx.fillText(fitText(ctx, card.name, summaryWidth - 18), dividerX + 18, y + 32);
       ctx.fillStyle = "#222222";
-      ctx.font = "800 36px system-ui, sans-serif";
-      ctx.fillText(fitText(ctx, `合计：${card.total || ""}`, summaryWidth - 18), dividerX + 18, y + 74);
+      ctx.font = "800 32px system-ui, sans-serif";
+      ctx.fillText(fitText(ctx, card.total || "", summaryWidth - 18), dividerX + 18, y + 72);
     }
 
     card.rows.forEach((row, index) => {
