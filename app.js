@@ -433,22 +433,25 @@ function buildReportCards(sourceRecords = recordsForReportRange()) {
     .forEach((record) => {
       if (!goodsGroups.has(record.goods)) goodsGroups.set(record.goods, new Map());
       const dates = goodsGroups.get(record.goods);
-      if (!dates.has(record.date)) dates.set(record.date, { dozenQty: 0, looseQty: 0 });
+      if (!dates.has(record.date)) dates.set(record.date, { dozenQty: 0, looseQty: 0, amount: 0 });
       const total = dates.get(record.date);
       total.dozenQty = roundMoney(total.dozenQty + (record.dozenQty || 0));
       total.looseQty = roundMoney(total.looseQty + (record.looseQty || 0));
+      total.amount = roundMoney(total.amount + recordTotal(record));
     });
 
   return [...goodsGroups.entries()].map(([name, dates]) => {
     const sortedDates = [...dates.entries()].sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
     const total = sortedDates.reduce((sum, [, qty]) => ({
       dozenQty: roundMoney(sum.dozenQty + (qty.dozenQty || 0)),
-      looseQty: roundMoney(sum.looseQty + (qty.looseQty || 0))
-    }), { dozenQty: 0, looseQty: 0 });
+      looseQty: roundMoney(sum.looseQty + (qty.looseQty || 0)),
+      amount: roundMoney(sum.amount + (qty.amount || 0))
+    }), { dozenQty: 0, looseQty: 0, amount: 0 });
     return {
       name,
       firstDate: sortedDates[0]?.[0] || "",
       total: formatReportTotalQty(total),
+      totalAmount: formatReportMoney(total.amount),
       rows: sortedDates
         .map(([date, qty]) => ({
         day: formatDayOnly(date),
@@ -472,7 +475,8 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
   const emptyText = "没有可以生成的记录";
   const cardsToDraw = cards.length ? cards : [{ name: "暂无记录", rows: [{ day: "", qty: emptyText }] }];
   const fullWidth = width - paddingX * 2;
-  const contentHeight = reportColumnHeight(cardsToDraw, rowHeight, groupNameHeight, groupGap);
+  const showTotals = els.reportTotalToggle.checked;
+  const contentHeight = reportColumnHeight(cardsToDraw, rowHeight, groupNameHeight, groupGap, showTotals);
   const height = paddingTop + titleHeight + contentHeight + 34;
 
   canvas.width = width;
@@ -487,7 +491,7 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
   }
 
   const contentTop = paddingTop + titleHeight;
-  drawReportColumn(ctx, cardsToDraw, paddingX, contentTop, fullWidth, rowHeight, groupNameHeight, groupGap);
+  drawReportColumn(ctx, cardsToDraw, paddingX, contentTop, fullWidth, rowHeight, groupNameHeight, groupGap, showTotals);
 
   els.reportImage.src = canvas.toDataURL("image/png");
   renderReportStatus(sourceRecords);
@@ -496,13 +500,13 @@ function drawReport(cards = buildReportCards(), sourceRecords = recordsForReport
   window.scrollTo?.({ top: 0, left: 0 });
 }
 
-function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeight, groupGap) {
+function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeight, groupGap, showTotals) {
   let y = startY;
-  const showTotals = els.reportTotalToggle.checked;
   cards.forEach((card) => {
     const summaryWidth = showTotals ? 250 : 0;
     const dividerX = x + width - summaryWidth - 18;
     const detailWidth = showTotals ? dividerX - x - 18 : width;
+    const detailRows = Math.max(card.rows.length, showTotals ? 2 : 1);
 
     ctx.fillStyle = "#4b4d52";
     ctx.textAlign = "left";
@@ -514,7 +518,7 @@ function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeig
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(dividerX, y + 6);
-      ctx.lineTo(dividerX, y + groupNameHeight + Math.max(card.rows.length, 1) * rowHeight - 8);
+      ctx.lineTo(dividerX, y + groupNameHeight + detailRows * rowHeight - 8);
       ctx.stroke();
 
       ctx.fillStyle = "#b42318";
@@ -523,6 +527,8 @@ function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeig
       ctx.fillStyle = "#222222";
       ctx.font = "800 32px system-ui, sans-serif";
       ctx.fillText(fitText(ctx, card.total || "", summaryWidth - 18), dividerX + 18, y + 72);
+      ctx.font = "700 26px system-ui, sans-serif";
+      ctx.fillText(fitText(ctx, `金额：${card.totalAmount || ""}`, summaryWidth - 18), dividerX + 18, y + 108);
     }
 
     card.rows.forEach((row, index) => {
@@ -533,7 +539,7 @@ function drawReportColumn(ctx, cards, x, startY, width, rowHeight, groupNameHeig
       ctx.fillText(fitText(ctx, row.qty, detailWidth - 92), x + 92, rowY + 31);
     });
 
-    y += groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
+    y += groupNameHeight + detailRows * rowHeight + groupGap;
   });
 }
 
@@ -556,10 +562,10 @@ async function copyReportImage() {
     // Some mobile browsers expose ClipboardItem but block image writes.
   }
 
-  const file = new File([blob], "记账本报告.png", { type: "image/png" });
+  const file = new File([blob], "report.png", { type: "image/png" });
   try {
     if (navigator.canShare?.({ files: [file] }) && navigator.share) {
-      await navigator.share({ files: [file], title: "记账本报告" });
+      await navigator.share({ files: [file] });
       renderReportStatus(recordsForReportRange(), "已打开分享面板。");
       return;
     }
@@ -581,19 +587,19 @@ function downloadReportBlob(blob) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "记账本报告.png";
+  link.download = "report.png";
   document.body.appendChild(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-function reportColumnHeight(cards, rowHeight, groupNameHeight, groupGap) {
-  return cards.reduce((sum, card) => sum + reportCardHeight(card, rowHeight, groupNameHeight, groupGap), 0);
+function reportColumnHeight(cards, rowHeight, groupNameHeight, groupGap, showTotals) {
+  return cards.reduce((sum, card) => sum + reportCardHeight(card, rowHeight, groupNameHeight, groupGap, showTotals), 0);
 }
 
-function reportCardHeight(card, rowHeight, groupNameHeight, groupGap) {
-  return groupNameHeight + Math.max(card.rows.length, 1) * rowHeight + groupGap;
+function reportCardHeight(card, rowHeight, groupNameHeight, groupGap, showTotals) {
+  return groupNameHeight + Math.max(card.rows.length, showTotals ? 2 : 1) * rowHeight + groupGap;
 }
 
 async function login() {
@@ -1191,6 +1197,11 @@ function formatReportTotalQty(record) {
   if (dozenQty > 0) parts.push(`${formatQty(dozenQty)}打`);
   if (looseQty > 0) parts.push(`${formatQty(looseQty)}件`);
   return parts.join(" ") || "0件";
+}
+
+function formatReportMoney(value) {
+  const amount = roundMoney(Number(value) || 0);
+  return `${amount.toFixed(2)}元`;
 }
 
 function fitText(ctx, text, maxWidth) {

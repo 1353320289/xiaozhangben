@@ -1,11 +1,11 @@
-const CACHE_NAME = "piecework-calendar-v54";
+const CACHE_NAME = "piecework-calendar-v55";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=54",
-  "./app.js?v=54",
-  "./vendor/supabase.min.js?v=54",
-  "./manifest.webmanifest?v=54",
+  "./styles.css?v=55",
+  "./app.js?v=55",
+  "./vendor/supabase.min.js?v=55",
+  "./manifest.webmanifest?v=55",
   "./assets/icon.svg",
   "./assets/notebook.svg"
 ];
