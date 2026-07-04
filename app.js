@@ -78,7 +78,6 @@ let deferredInstallPrompt = null;
 init();
 
 async function init() {
-  state.records = keepCurrentMonthRecords(state.records);
   saveRecords();
   requestPersistentStorage();
   bindEvents();
@@ -617,7 +616,7 @@ async function login() {
 async function logout() {
   if (supabaseClient) await supabaseClient.auth.signOut();
   state.user = null;
-  state.records = keepCurrentMonthRecords(loadRecords());
+  state.records = loadRecords();
   state.view = "auth";
   state.syncStatus = "未登录";
   setAuthStatus("已退出，请重新登录。");
@@ -631,14 +630,13 @@ async function enterAccount(user) {
   setAuthStatus("");
   render();
 
-  let localRecords = keepCurrentMonthRecords(loadRecords(user.id));
+  let localRecords = loadRecords(user.id);
   if (!localRecords.length && !localStorage.getItem(LEGACY_MIGRATION_KEY)) {
-    localRecords = keepCurrentMonthRecords(loadRecords());
+    localRecords = loadRecords();
     if (localRecords.length) localStorage.setItem(LEGACY_MIGRATION_KEY, user.id);
   }
   const cloudRecords = await fetchCloudRecords();
   state.records = mergeRecords(cloudRecords, localRecords);
-  state.records = keepCurrentMonthRecords(state.records);
   saveRecords();
   await mergeCloudReportRanges();
   await syncRecords();
@@ -1111,11 +1109,6 @@ function readStoredRecords(key) {
   } catch {
     return null;
   }
-}
-
-function keepCurrentMonthRecords(records) {
-  const currentMonth = monthKey(new Date());
-  return records.filter((record) => record.date?.startsWith(currentMonth));
 }
 
 async function requestPersistentStorage() {
