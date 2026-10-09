@@ -74,6 +74,8 @@ const els = {
 };
 
 let deferredInstallPrompt = null;
+let recordSyncTask = null;
+let recordSyncAgain = false;
 
 init();
 
@@ -101,14 +103,21 @@ async function init() {
     setAuthStatus("请输入管理员创建的账户。");
   }
 
-  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
     if (session?.user && session.user.id !== state.user?.id) {
-      await enterAccount(session.user);
+      setTimeout(() => enterAccount(session.user), 0);
     }
   });
 }
 
 function bindEvents() {
+  window.addEventListener("online", () => syncRecords());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") syncRecords();
+  });
+  setInterval(() => {
+    if (document.visibilityState === "visible" && navigator.onLine !== false) syncRecords();
+  }, 60000);
   els.authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await login();
@@ -220,15 +229,21 @@ function bindEvents() {
     }
     if (deleteButton) {
       const record = state.records.find((item) => item.id === deleteButton.dataset.delete);
-      if (record) record.deletedAt = new Date().toISOString();
+      if (record) {
+        record.deletedAt = new Date().toISOString();
+        record.updatedAt = record.deletedAt;
+      }
     }
     if (restoreButton) {
       const record = state.records.find((item) => item.id === restoreButton.dataset.restore);
-      if (record) delete record.deletedAt;
+      if (record) {
+        delete record.deletedAt;
+        record.updatedAt = new Date().toISOString();
+      }
     }
     if (removeButton) {
+      if (!await deleteCloudRecord(removeButton.dataset.remove)) return;
       state.records = state.records.filter((record) => record.id !== removeButton.dataset.remove);
-      await deleteCloudRecord(removeButton.dataset.remove);
     }
 
     saveRecords();
@@ -635,12 +650,10 @@ async function enterAccount(user) {
     localRecords = loadRecords();
     if (localRecords.length) localStorage.setItem(LEGACY_MIGRATION_KEY, user.id);
   }
-  const cloudRecords = await fetchCloudRecords();
-  state.records = mergeRecords(cloudRecords, localRecords);
+  state.records = localRecords;
   saveRecords();
-  await mergeCloudReportRanges();
   await syncRecords();
-  state.syncStatus = "已同步";
+  await mergeCloudReportRanges();
   render();
   fillLatestGoods();
 }
@@ -731,36 +744,85 @@ function recordTime(record) {
   return record.updatedAt || record.createdAt || "";
 }
 
-async function fetchCloudRecords() {
-  if (!supabaseClient || !state.user) return [];
-  const { data, error } = await supabaseClient
-    .from(RECORDS_TABLE)
-    .select("*")
-    .order("date", { ascending: true });
-  if (error) {
-    state.syncStatus = "云端读取失败";
-    return [];
+function recordVersion(record) {
+  return Date.parse(recordTime(record)) || 0;
+}
+
+async function fetchCloudRecords(userId = state.user?.id) {
+  const records = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabaseClient
+      .from(RECORDS_TABLE)
+      .select("*")
+      .eq("user_id", userId)
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    records.push(...(data || []).map(recordFromCloud));
+    if ((data || []).length < pageSize) return records;
   }
-  return (data || []).map(recordFromCloud);
 }
 
 async function syncRecords() {
   if (!supabaseClient || !state.user) return;
+  if (recordSyncTask) {
+    recordSyncAgain = true;
+    return recordSyncTask;
+  }
+  recordSyncTask = (async () => {
+    do {
+      recordSyncAgain = false;
+      await syncRecordPass();
+    } while (recordSyncAgain && state.user);
+  })();
+  try {
+    await recordSyncTask;
+  } finally {
+    recordSyncTask = null;
+  }
+}
+
+async function syncRecordPass() {
+  const userId = state.user.id;
   state.syncStatus = "同步中";
   render();
-
-  const payload = state.records.map(recordToCloud);
-  const { error } = payload.length
-    ? await supabaseClient.from(RECORDS_TABLE).upsert(payload, { onConflict: "id" })
-    : { error: null };
-
-  state.syncStatus = error ? "同步失败" : "已同步";
-  render();
+  try {
+    const cloudRecords = await fetchCloudRecords(userId);
+    if (state.user?.id !== userId) return;
+    state.records = mergeRecords(cloudRecords, state.records);
+    saveRecords();
+    const cloudById = new Map(cloudRecords.map((record) => [record.id, record]));
+    const payload = state.records
+      .filter((record) => {
+        const cloud = cloudById.get(record.id);
+        return !cloud || recordVersion(record) > recordVersion(cloud);
+      })
+      .map(recordToCloud);
+    for (let offset = 0; offset < payload.length; offset += 500) {
+      if (state.user?.id !== userId) return;
+      const { error } = await supabaseClient.from(RECORDS_TABLE)
+        .upsert(payload.slice(offset, offset + 500), { onConflict: "id" });
+      if (error) throw error;
+    }
+    if (state.user?.id === userId) state.syncStatus = recordSyncAgain ? "同步中" : "已同步";
+  } catch {
+    if (state.user?.id === userId) state.syncStatus = "本机已保存，待同步";
+  }
+  if (state.user?.id === userId) render();
 }
 
 async function deleteCloudRecord(id) {
-  if (!supabaseClient || !state.user || !id) return;
-  await supabaseClient.from(RECORDS_TABLE).delete().eq("id", id);
+  if (!supabaseClient || !state.user || !id) return false;
+  try {
+    const { error } = await supabaseClient.from(RECORDS_TABLE).delete().eq("id", id);
+    if (error) throw error;
+    return true;
+  } catch {
+    state.syncStatus = "彻底删除失败，记录仍在回收站";
+    render();
+    return false;
+  }
 }
 
 
@@ -794,7 +856,8 @@ function recordFromCloud(record) {
 function mergeRecords(primary, secondary) {
   const records = new Map();
   [...secondary, ...primary].forEach((record) => {
-    records.set(record.id, record);
+    const current = records.get(record.id);
+    if (!current || recordVersion(record) >= recordVersion(current)) records.set(record.id, record);
   });
   return [...records.values()];
 }
@@ -832,6 +895,9 @@ function openReportPicker() {
   state.draftReportRange = null;
   els.reportPicker.hidden = false;
   renderReportPicker();
+  mergeCloudReportRanges().then((synced) => {
+    if (synced && !els.reportPicker.hidden) renderReportPicker();
+  });
 }
 
 function closeReportPicker() {
@@ -957,55 +1023,74 @@ function reportRangeScope() {
 
 async function mergeCloudReportRanges() {
   if (!supabaseClient || !state.user) return;
+  const userId = state.user.id;
+  const month = monthKey(state.activeMonth);
+  const scope = `${userId}:${month}`;
+  try {
   const { data, error } = await supabaseClient
     .from(REPORT_RANGES_TABLE)
     .select("*")
-    .eq("month", monthKey(state.activeMonth))
+    .eq("user_id", userId)
+    .eq("month", month)
     .order("created_at", { ascending: false })
     .limit(2);
-  if (error) return;
+  if (error) throw error;
+  if (state.user?.id !== userId) return;
 
   const ranges = loadLastReportRange();
-  const scope = reportRangeScope();
   const localHistory = Array.isArray(ranges[scope]) ? ranges[scope].map(normalizeReportRangeItem) : ranges[scope] ? [normalizeReportRangeItem({ range: ranges[scope] })] : [];
   const cloudHistory = (data || []).map(reportRangeFromCloud);
   ranges[scope] = mergeReportRangeHistory(cloudHistory, localHistory);
   localStorage.setItem(LAST_REPORT_RANGE_KEY, JSON.stringify(ranges));
-  await syncReportRangeItems(ranges[scope]);
+  await syncReportRangeItems(ranges[scope], month, userId);
+  return true;
+  } catch {
+    if (state.user?.id === userId && monthKey(state.activeMonth) === month) {
+      els.reportHistory.textContent = "报告历史同步失败，当前仅显示本机记录。";
+    }
+    return false;
+  }
 }
 
 async function syncReportRangeHistory(item) {
   if (!supabaseClient || !state.user || !item) return;
-  await syncReportRangeItems([item]);
+  try {
+    await syncReportRangeItems([item]);
+  } catch {
+    renderReportStatus(recordsForReportRange(), "报告日期已保存在本机，待同步。");
+  }
 }
 
-async function syncReportRangeItems(items) {
+async function syncReportRangeItems(items, month = monthKey(state.activeMonth), userId = state.user?.id) {
   if (!supabaseClient || !state.user || !items?.length) return;
 
-  const payload = items.map(reportRangeToCloud);
+  const payload = items.map((item) => reportRangeToCloud(item, month, userId));
   const { error } = await supabaseClient.from(REPORT_RANGES_TABLE).upsert(payload, {
     onConflict: "id",
     ignoreDuplicates: true
   });
-  if (error) return;
+  if (error) throw error;
 
-  const { data } = await supabaseClient
+  const { data, error: readError } = await supabaseClient
     .from(REPORT_RANGES_TABLE)
     .select("id")
-    .eq("month", monthKey(state.activeMonth))
+    .eq("user_id", userId)
+    .eq("month", month)
     .order("created_at", { ascending: false });
   const oldIds = (data || []).slice(2).map((record) => record.id);
+  if (readError) throw readError;
   if (oldIds.length) {
-    await supabaseClient.from(REPORT_RANGES_TABLE).delete().in("id", oldIds);
+    const { error: deleteError } = await supabaseClient.from(REPORT_RANGES_TABLE).delete().in("id", oldIds);
+    if (deleteError) throw deleteError;
   }
 }
 
-function reportRangeToCloud(item) {
+function reportRangeToCloud(item, month = monthKey(state.activeMonth), userId = state.user?.id) {
   const range = item.range || { all: true };
   return {
     id: item.id,
-    user_id: state.user.id,
-    month: monthKey(state.activeMonth),
+    user_id: userId,
+    month,
     start_date: range.all ? null : range.start,
     end_date: range.all ? null : range.end,
     all_records: Boolean(range.all),

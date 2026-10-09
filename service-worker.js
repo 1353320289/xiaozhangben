@@ -1,11 +1,11 @@
-const CACHE_NAME = "piecework-calendar-v56";
+const CACHE_NAME = "piecework-calendar-v57";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=56",
-  "./app.js?v=56",
-  "./vendor/supabase.min.js?v=56",
-  "./manifest.webmanifest?v=56",
+  "./styles.css?v=57",
+  "./app.js?v=57",
+  "./vendor/supabase.min.js?v=57",
+  "./manifest.webmanifest?v=57",
   "./assets/icon.svg",
   "./assets/notebook.svg"
 ];
@@ -27,6 +27,8 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // Cloud records must always come from the server, never the offline asset cache.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
 
   const request = event.request;
   const shouldRefresh =
