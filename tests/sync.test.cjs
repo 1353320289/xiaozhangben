@@ -8,6 +8,13 @@ function setup(rows = []) {
   const storage = new Map();
   const api = { rows, failRead: false, failWrite: false, failDelete: false, writes: [] };
   const client = {
+    auth: {
+      getSession: async () => {
+        api.sessionReads = (api.sessionReads || 0) + 1;
+        if (api.sessionThrows) throw new Error('network unavailable');
+        return { data: { session: api.session || null }, error: api.sessionError || null };
+      }
+    },
     from(table) {
       const query = {
         select() { return this; }, eq() { return this; }, order() { return this; },
@@ -128,4 +135,50 @@ test('service worker never serves cloud data from the offline asset cache', () =
     respondWith() { intercepted = true; }
   });
   assert.equal(intercepted, false);
+});
+
+test('saved login is restored without asking for a password', async () => {
+  const { run, api } = setup();
+  api.session = { user: { id: 'saved-user' } };
+  run('state.user = null; enterAccount = async (user) => { state.user = user; state.view = "app"; };');
+  await run('restoreLogin()');
+  assert.equal(run('state.user.id'), 'saved-user');
+  assert.equal(run('state.view'), 'app');
+});
+
+test('temporary session recovery error is retried and does not clear existing account', async () => {
+  const { run, api } = setup();
+  api.sessionThrows = true;
+  await run('restoreLogin()');
+  assert.equal(run('state.user.id'), 'test-user');
+  assert.match(run('els.authStatus.textContent'), /网络恢复后/);
+  api.sessionThrows = false;
+  api.session = { user: { id: 'test-user' } };
+  await run('restoreLogin()');
+  assert.equal(run('state.syncStatus'), '已同步');
+  assert.equal(api.sessionReads, 2);
+});
+
+test('confirmed missing session returns to login without deleting stored records', async () => {
+  const { run } = setup();
+  run('state.records = [{ id: "one" }]; saveRecords();');
+  await run('restoreLogin()');
+  assert.equal(run('state.user'), null);
+  assert.equal(run('state.view'), 'auth');
+  assert.equal(run('loadRecords("test-user").length'), 1);
+});
+
+test('multiple foreground events share one session recovery request', async () => {
+  const { run, api } = setup();
+  api.session = { user: { id: 'test-user' } };
+  await Promise.all([run('restoreLogin()'), run('restoreLogin()'), run('restoreLogin()')]);
+  assert.equal(api.sessionReads, 1);
+});
+
+test('session recovery error result is not treated as an explicit logout', async () => {
+  const { run, api } = setup();
+  api.sessionError = new Error('temporarily unavailable');
+  await run('restoreLogin()');
+  assert.equal(run('state.user.id'), 'test-user');
+  assert.equal(run('state.syncStatus'), '登录恢复中，待同步');
 });

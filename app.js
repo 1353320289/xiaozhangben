@@ -7,7 +7,9 @@ const SUPABASE_URL = "https://xbelcicqzulbexljkttq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_oUSYtdT8CfWFh72JWyYSbg_Ds9eLduV";
 const RECORDS_TABLE = "ledger_records";
 const REPORT_RANGES_TABLE = "report_ranges";
-const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
 
 const state = {
   records: loadRecords(),
@@ -76,6 +78,8 @@ const els = {
 let deferredInstallPrompt = null;
 let recordSyncTask = null;
 let recordSyncAgain = false;
+let loginRestoreTask = null;
+let loginGeneration = 0;
 
 init();
 
@@ -96,27 +100,67 @@ async function init() {
     return;
   }
 
-  const { data } = await supabaseClient.auth.getSession();
-  if (data.session?.user) {
-    await enterAccount(data.session.user);
-  } else {
-    setAuthStatus("请输入管理员创建的账户。");
-  }
-
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
-    if (session?.user && session.user.id !== state.user?.id) {
-      setTimeout(() => enterAccount(session.user), 0);
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT" || (session?.user && session.user.id !== state.user?.id)) {
+      // Run outside the auth callback so token refresh can release its lock.
+      setTimeout(() => restoreLogin(), 0);
     }
   });
+  await restoreLogin();
+}
+
+async function restoreLogin() {
+  if (!supabaseClient) return;
+  if (loginRestoreTask) return loginRestoreTask;
+  const generation = loginGeneration;
+  loginRestoreTask = (async () => {
+    if (!state.user) setAuthStatus("正在恢复登录…");
+    let result;
+    try {
+      result = await supabaseClient.auth.getSession();
+      if (generation !== loginGeneration) return;
+      if (result.error) throw result.error;
+    } catch {
+      if (generation !== loginGeneration) return;
+      setAuthStatus("暂时无法恢复登录，网络恢复后会自动重试。");
+      if (state.user) {
+        state.syncStatus = "登录恢复中，待同步";
+        render();
+      }
+      return;
+    }
+    const user = result.data.session?.user;
+    if (!user) {
+      state.user = null;
+      state.records = [];
+      state.view = "auth";
+      state.syncStatus = "未登录";
+      setAuthStatus("请输入管理员创建的账户；登录后会自动保留登录状态。");
+      render();
+      return;
+    }
+    if (state.user?.id !== user.id) {
+      await enterAccount(user);
+    } else {
+      setAuthStatus("");
+      await syncRecords();
+    }
+  })();
+  try {
+    await loginRestoreTask;
+  } finally {
+    loginRestoreTask = null;
+  }
 }
 
 function bindEvents() {
-  window.addEventListener("online", () => syncRecords());
+  window.addEventListener("online", () => restoreLogin());
+  window.addEventListener("pageshow", () => restoreLogin());
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") syncRecords();
+    if (document.visibilityState === "visible") restoreLogin();
   });
   setInterval(() => {
-    if (document.visibilityState === "visible" && navigator.onLine !== false) syncRecords();
+    if (document.visibilityState === "visible" && navigator.onLine !== false) restoreLogin();
   }, 60000);
   els.authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -625,10 +669,14 @@ async function login() {
   });
   if (error) {
     setAuthStatus(`登录失败：${error.message}`);
+  } else {
+    els.password.value = "";
+    await restoreLogin();
   }
 }
 
 async function logout() {
+  loginGeneration += 1;
   if (supabaseClient) await supabaseClient.auth.signOut();
   state.user = null;
   state.records = loadRecords();
